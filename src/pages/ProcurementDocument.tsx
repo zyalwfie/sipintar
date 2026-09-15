@@ -252,6 +252,70 @@ const getTerbilangTitleCase = (value: string) =>
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
+const angkaTerbilang = (value: number): string => {
+  const satuan = [
+    '',
+    'Satu',
+    'Dua',
+    'Tiga',
+    'Empat',
+    'Lima',
+    'Enam',
+    'Tujuh',
+    'Delapan',
+    'Sembilan',
+    'Sepuluh',
+    'Sebelas',
+  ];
+
+  const n = Math.floor(Math.abs(value));
+
+  if (n < 12) return satuan[n];
+  if (n < 20) return `${angkaTerbilang(n - 10)} Belas`;
+  if (n < 100)
+    return `${angkaTerbilang(Math.floor(n / 10))} Puluh${
+      n % 10 ? ` ${angkaTerbilang(n % 10)}` : ''
+    }`;
+  if (n < 200) return `Seratus${n - 100 ? ` ${angkaTerbilang(n - 100)}` : ''}`;
+  if (n < 1000)
+    return `${angkaTerbilang(Math.floor(n / 100))} Ratus${
+      n % 100 ? ` ${angkaTerbilang(n % 100)}` : ''
+    }`;
+  if (n < 2000) return `Seribu${n - 1000 ? ` ${angkaTerbilang(n - 1000)}` : ''}`;
+  if (n < 1000000)
+    return `${angkaTerbilang(Math.floor(n / 1000))} Ribu${
+      n % 1000 ? ` ${angkaTerbilang(n % 1000)}` : ''
+    }`;
+  if (n < 1000000000)
+    return `${angkaTerbilang(Math.floor(n / 1000000))} Juta${
+      n % 1000000 ? ` ${angkaTerbilang(n % 1000000)}` : ''
+    }`;
+
+  return `${angkaTerbilang(Math.floor(n / 1000000000))} Miliar${
+    n % 1000000000 ? ` ${angkaTerbilang(n % 1000000000)}` : ''
+  }`;
+};
+
+const getDatePartsIndonesia = (value: string) => {
+  if (!value) return { hari: '-', tanggal: '-', bulan: '-', tahun: '-' };
+
+  const date = new Date(`${value}T00:00:00`);
+
+  return {
+    hari: new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(date),
+    tanggal: angkaTerbilang(date.getDate()),
+    bulan: new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date),
+    tahun: angkaTerbilang(date.getFullYear()),
+  };
+};
+
+const formatRupiahTerbilang = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+
+  return `${angkaTerbilang(Number(digits))} Rupiah`;
+};
+
 const maxImageFileSize = 1.5 * 1024 * 1024;
 const documentBodyInset = 28;
 
@@ -382,6 +446,30 @@ const PbjSelect = ({
   </div>
 );
 
+const EvalSelect = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) => (
+  <div>
+    <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+      {label}
+    </label>
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+    >
+      <option value="M">M - Memenuhi Syarat</option>
+      <option value="TM">TM - Tidak Memenuhi Syarat</option>
+    </select>
+  </div>
+);
+
 const getAssetJustifyClass = (position: DocumentTemplateAsset['position']) => {
   if (position === 'left') return 'justify-start';
   if (position === 'right') return 'justify-end';
@@ -438,6 +526,13 @@ const ProcurementDocument = () => {
     !isPreview && documentName === 'Berita Acara Penjelasan Pekerjaan';
   const isBuktiPengambilan =
     !isPreview && documentName === 'Bukti Pengambilan Dokumen Pengadaan';
+  const isUndanganKlarifikasi =
+    !isPreview && documentName === 'Undangan Klarifikasi dan Negosiasi';
+  const isBeritaKlarifikasi =
+    !isPreview &&
+    documentName === 'Berita Acara Klarifikasi dan Negosiasi Dokumen';
+  const isHasilPengadaan =
+    !isPreview && documentName === 'Berita Acara Hasil Pengadaan Langsung';
   const isPenunjukanPenyedia =
     !isPreview && documentName === 'Penunjukan Penyedia Pengadaan';
   const isSpk = !isPreview && documentName === 'SPK atau Kontrak Kerja';
@@ -487,6 +582,59 @@ const ProcurementDocument = () => {
     buktiNamaPejabatPerusahaan: 'Amien',
     buktiJabatanPejabat: 'Direktur Eksekutif',
     buktiPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
+    uknLampiran: '1 (satu) gabung',
+    uknTempatSurat: selectedPengadaan.tempatPenandatanganan,
+    uknTanggalSurat: '2026-08-03',
+    uknKepadaJabatan: 'Direktur',
+    uknNamaPenyedia: selectedPengadaan.namaPenyedia,
+    uknAlamat: selectedPengadaan.alamat,
+    uknPerihal: 'Undangan Klarifikasi dan Negosiasi',
+    uknPekerjaan: selectedPengadaan.judulPengadaan,
+    uknWaktu: '11:00',
+    uknHari: '2026-08-04',
+    uknTempat: 'Ruang Rapat Kantor PT BPR NTB PERSERODA',
+    uknParagrafPembuka:
+      'Berdasarkan hasil evaluasi yang kami lakukan, penawaran Saudara kami nyatakan memenuhi syarat. Sehubungan dengan hal tersebut, kami mengundang Saudara dalam rangka klarifikasi, negosiasi harga, dan pembuktian kualifikasi dengan keterangan sebagai berikut ini :',
+    uknParagrafPenutup:
+      'Dalam Pembuktian Kualifikasi, mohon kiranya membawa dokumen aseli terhadap dokumen yang dicantumkan dalam dokumen penawaran. Demikian atas perhatian dan kehadiran saudara disampaikan terima kasih.',
+    uknPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
+    baknTanggal: '2026-08-04',
+    baknTempat: 'Ruang Rapat Kantor PT BPR NTB PERSERODA',
+    baknNamaPenyedia: selectedPengadaan.namaPenyedia,
+    baknPekerjaan: selectedPengadaan.judulPengadaan,
+    baknHasil1:
+      'Dari hasil klarifikasi teknis, ' +
+      selectedPengadaan.namaPenyedia +
+      ' menyatakan sanggup untuk melaksanakan pekerjaan di atas sesuai dengan spesifikasi teknis, volume dan jangka waktu pekerjaan yang ditentukan.',
+    baknHasil2:
+      'Dari hasil negosiasi harga, disepakati harga pekerjaan sesuai daftar (terlampir).',
+    baknHasil3:
+      'Dari hasil pembuktian kualifikasi, ' +
+      selectedPengadaan.namaPenyedia +
+      ' dapat menunjukkan dokumen asli yang tercantum dalam dokumen penawaran.',
+    baknKeteranganPenutup:
+      'Demikian Berita Acara ini dibuat untuk ditindak lanjuti sebagaimana mestinya.',
+    baknNamaDirektur: selectedPengadaan.namaDirektur,
+    baknPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
+    bahplTanggal: '2026-08-05',
+    bahplPekerjaan: selectedPengadaan.judulPengadaan,
+    bahplHps: selectedPengadaan.hps,
+    bahplUnsurEvaluasi: 'Adminstrasi, Teknis, Harga dan Kualifikasi',
+    bahplNamaPerusahaan: selectedPengadaan.namaPenyedia,
+    bahplHargaPenawaran: '135450000',
+    bahplEvalAdministrasi: 'M',
+    bahplEvalTeknis: 'M',
+    bahplEvalHarga: 'M',
+    bahplEvalKualifikasi: 'M',
+    bahplKet: 'M',
+    bahplNamaPenyedia: selectedPengadaan.namaPenyedia,
+    bahplNamaDirektur: selectedPengadaan.namaDirektur,
+    bahplAlamat: selectedPengadaan.alamat,
+    bahplNpwp: '1000000009573294',
+    bahplHargaNegosiasi: '130950000',
+    bahplKeteranganPenutup:
+      'Demikian berita acara ini dibuat sebagai pertimbangan dalam pembuatan kontrak oleh pejabat pembuat Komitmen.',
+    bahplPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
     penunjukanTempat: selectedPengadaan.tempatPenandatanganan,
     penunjukanTanggal: '2026-08-06',
     penunjukanLampiran: '-',
@@ -532,6 +680,9 @@ const ProcurementDocument = () => {
   const beritaTanyaJawab = getPbjByNrp(form.beritaRapatTanyaJawab);
   const beritaPenandaTangan = getPbjByNrp(form.beritaPenandaTangan);
   const buktiPenandaTangan = getPbjByNrp(form.buktiPenandaTangan);
+  const uknPenandaTangan = getPbjByNrp(form.uknPenandaTangan);
+  const baknPenandaTangan = getPbjByNrp(form.baknPenandaTangan);
+  const bahplPenandaTangan = getPbjByNrp(form.bahplPenandaTangan);
   const penunjukanPenandaTangan = getPbjByNrp(form.penunjukanPenandaTangan);
   const spkPpk =
     selectedPengadaan.ppk.find((pegawai) => pegawai.nrp === form.spkPpk) ??
@@ -687,10 +838,14 @@ const ProcurementDocument = () => {
     documentTemplate.header.src && documentTemplate.footer.src
   );
   const isHeaderFooterRequired =
-    isSuratUndangan || isBuktiPengambilan || isPenunjukanPenyedia;
+    isSuratUndangan ||
+    isBuktiPengambilan ||
+    isUndanganKlarifikasi ||
+    isBeritaKlarifikasi ||
+    isHasilPengadaan ||
+    isPenunjukanPenyedia;
   const effectiveUseHeaderFooter =
-    (isSuratUndangan || isBuktiPengambilan || isPenunjukanPenyedia) &&
-    (isHeaderFooterRequired || useHeaderFooter);
+    isHeaderFooterRequired && (isHeaderFooterRequired || useHeaderFooter);
   const canDownloadDocument =
     !isHeaderFooterRequired || hasCompleteHeaderFooterImages;
 
@@ -1123,6 +1278,241 @@ const ProcurementDocument = () => {
     </div>
   `;
 
+  const getUndanganKlarifikasiContentHtml = () => `
+    <div class="content-block top-date" style="text-align: right;">${escapeHtml(
+      form.uknTempatSurat
+    )}, ${escapeHtml(formatDateOnlyFromInput(form.uknTanggalSurat))}</div>
+
+    <table class="content-block meta mb">
+      <tr><td class="meta-label">Nomor</td><td class="colon-mark">:</td><td>${escapeHtml(
+        nomorDokumen
+      )}</td></tr>
+      <tr><td class="meta-label">Lampiran</td><td class="colon-mark">:</td><td>${escapeHtml(
+        form.uknLampiran
+      )}</td></tr>
+    </table>
+
+    <div class="content-block mb">
+      <div>Kepada Yth.</div>
+      <div>${escapeHtml(form.uknKepadaJabatan)} - ${escapeHtml(
+        form.uknNamaPenyedia
+      )}</div>
+      <div class="address-indent">di -</div>
+      <div class="address-indent" style="margin-left: 32px;">${escapeHtml(
+        form.uknAlamat
+      )}</div>
+    </div>
+
+    <table class="content-block meta subject mb">
+      <tr><td class="meta-label">Perihal</td><td class="colon-mark">:</td><td class="strong">${escapeHtml(
+        form.uknPerihal
+      )}</td></tr>
+    </table>
+
+    <div class="content-block ukn-salam">Bismillahirrahmanirrahiim<br />Assalamu'alaikum Warahmatullahi Wabarakatuh</div>
+
+    <div class="content-block"><p>${escapeHtml(form.uknParagrafPembuka)}</p></div>
+
+    <table class="content-block row-table mb">
+      <tr><td class="colon-label">Pekerjaan</td><td class="colon-mark">:</td><td>${escapeHtml(
+        form.uknPekerjaan
+      )}</td></tr>
+      <tr><td class="colon-label">Waktu</td><td class="colon-mark">:</td><td>${escapeHtml(
+        formatTimeWita(form.uknWaktu)
+      )} Wita</td></tr>
+      <tr><td class="colon-label">Hari</td><td class="colon-mark">:</td><td>${escapeHtml(
+        formatDateFromInput(form.uknHari)
+      )}</td></tr>
+      <tr><td class="colon-label">Tempat</td><td class="colon-mark">:</td><td>${escapeHtml(
+        form.uknTempat
+      )}</td></tr>
+    </table>
+
+    <div class="content-block"><p>${escapeHtml(form.uknParagrafPenutup)}</p></div>
+
+    <div class="content-block ukn-salam">Wassalamu'alaikaum Warahmatullahi Wabarakatuh</div>
+
+    <div class="content-block signature">
+      <div class="signature-inner">
+        <div>Pejabat Pengadaan Barang/Jasa</div>
+        <div>PT BPR NTB PERSERODA T.A 2026</div>
+        <div style="height: 60px;"></div>
+        <div class="strong"><u>${escapeHtml(uknPenandaTangan?.nama ?? '')}</u></div>
+        <div>NRP : ${escapeHtml(uknPenandaTangan?.nrp ?? '')}</div>
+      </div>
+    </div>
+  `;
+
+  const getBeritaKlarifikasiContentHtml = () => {
+    const parts = getDatePartsIndonesia(form.baknTanggal);
+
+    return `
+    <div class="ba-document">
+      <div class="ba-title-block content-block">
+        <h1>Berita Acara Klarifikasi dan Negosiasi</h1>
+        <div>Nomor: <span class="ba-number">${escapeHtml(nomorDokumen)}</span></div>
+      </div>
+
+      <div class="content-block ba-paragraph">Pada Hari ini,</div>
+
+      <table class="ba-meta content-block">
+        <tr><td>Hari</td><td>:</td><td>${escapeHtml(parts.hari)}</td></tr>
+        <tr><td>Tanggal</td><td>:</td><td>${escapeHtml(parts.tanggal)}</td></tr>
+        <tr><td>Bulan</td><td>:</td><td>${escapeHtml(parts.bulan)}</td></tr>
+        <tr><td>Tahun</td><td>:</td><td>${escapeHtml(parts.tahun)}</td></tr>
+        <tr><td>Tempat</td><td>:</td><td>${escapeHtml(form.baknTempat)}</td></tr>
+      </table>
+
+      <div class="content-block ba-paragraph">kami yang bertanda tangan di bawah ini adalah Pejabat Pengadaan, telah melakukan klarifikasi teknis dan negosiasi harga terhadap penawaran yang diajukan oleh:</div>
+
+      <table class="ba-meta content-block">
+        <tr><td>Nama Penyedia</td><td>:</td><td>${escapeHtml(
+          form.baknNamaPenyedia
+        )}</td></tr>
+        <tr><td>Untuk Pekerjaan</td><td>:</td><td>${escapeHtml(
+          form.baknPekerjaan
+        )}</td></tr>
+      </table>
+
+      <div class="content-block ba-paragraph">Dengan hasil pembahasan sebagai berikut :</div>
+
+      <table class="ba-list bakn-list content-block">
+        <tr><td>1.</td><td>${escapeHtml(form.baknHasil1)}</td></tr>
+        <tr><td>2.</td><td>${escapeHtml(form.baknHasil2)}</td></tr>
+        <tr><td>3.</td><td>${escapeHtml(form.baknHasil3)}</td></tr>
+      </table>
+
+      <div class="content-block ba-paragraph">${escapeHtml(
+        form.baknKeteranganPenutup
+      )}</div>
+
+      <div class="content-block ba-signatures">
+        <div class="ba-signature-left">
+          <div>Penyedia,</div>
+          <div>${escapeHtml(form.baknNamaPenyedia)}</div>
+          <div class="ba-signature-space"></div>
+          <div class="strong"><u>${escapeHtml(form.baknNamaDirektur)}</u></div>
+          <div>Direktur</div>
+        </div>
+        <div class="ba-signature-right">
+          <div>Pejabat Pengadaan Barang/Jasa</div>
+          <div>PT BPR NTB PERSERODA T.A 2026</div>
+          <div class="ba-signature-space"></div>
+          <div class="strong"><u>${escapeHtml(
+            baknPenandaTangan?.nama ?? ''
+          )}</u></div>
+          <div>NRP : ${escapeHtml(baknPenandaTangan?.nrp ?? '')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  };
+
+  const getHasilPengadaanContentHtml = () => {
+    const parts = getDatePartsIndonesia(form.bahplTanggal);
+
+    return `
+    <div class="hpl-document">
+      <div class="hpl-title-block content-block">
+        <h1>Berita Acara Hasil Pengadaan Langsung</h1>
+        <div>Nomor: <span class="ba-number">${escapeHtml(nomorDokumen)}</span></div>
+      </div>
+
+      <div class="content-block ba-paragraph">Pada hari ini,</div>
+
+      <table class="ba-meta content-block">
+        <tr><td>Hari</td><td>:</td><td>${escapeHtml(parts.hari)}</td></tr>
+        <tr><td>Tanggal</td><td>:</td><td>${escapeHtml(parts.tanggal)}</td></tr>
+        <tr><td>Bulan</td><td>:</td><td>${escapeHtml(parts.bulan)}</td></tr>
+        <tr><td>Tahun</td><td>:</td><td>${escapeHtml(parts.tahun)}</td></tr>
+      </table>
+
+      <div class="content-block ba-paragraph">Telah disusunnya Berita Acara Hasil Pengadaan Langsung yang memuat Proses Pengadaan Langsung sebagai berikut :</div>
+
+      <table class="ba-meta content-block">
+        <tr><td>Pekerjaan</td><td>:</td><td>${escapeHtml(
+          form.bahplPekerjaan
+        )}</td></tr>
+        <tr><td>HPS</td><td>:</td><td>Rp ${escapeHtml(
+          formatRupiahText(form.bahplHps)
+        )} ,- (${escapeHtml(formatRupiahTerbilang(form.bahplHps))})</td></tr>
+        <tr><td>Unsur Evaluasi</td><td>:</td><td>${escapeHtml(
+          form.bahplUnsurEvaluasi
+        )}</td></tr>
+        <tr><td>Hasil Evaluasi</td><td>:</td><td></td></tr>
+      </table>
+
+      <table class="hpl-table content-block">
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th>Nama Perusahaan</th>
+            <th>Harga Penawaran</th>
+            <th>Evaluasi Administrasi</th>
+            <th>Evaluasi Teknis</th>
+            <th>Evaluasi Harga</th>
+            <th>Evaluasi Kualifikasi</th>
+            <th>Ket.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1.</td>
+            <td>${escapeHtml(form.bahplNamaPerusahaan)}</td>
+            <td>Rp ${escapeHtml(formatRupiahText(form.bahplHargaPenawaran))}</td>
+            <td>${escapeHtml(form.bahplEvalAdministrasi)}</td>
+            <td>${escapeHtml(form.bahplEvalTeknis)}</td>
+            <td>${escapeHtml(form.bahplEvalHarga)}</td>
+            <td>${escapeHtml(form.bahplEvalKualifikasi)}</td>
+            <td>${escapeHtml(form.bahplKet)}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="content-block hpl-note">Keterangan : M : Memenuhi Syarat; TM : Tidak Memenuhi Syarat</div>
+
+      <div class="content-block ba-paragraph">Berdasarkan uraian diatas, maka Pejabat Pengadaan pada PT BPR NTB PERSERODA berkesimpulan bahwa peserta :</div>
+
+      <table class="hpl-summary content-block">
+        <tr><td>Nama Penyedia</td><td>:</td><td>${escapeHtml(
+          form.bahplNamaPenyedia
+        )}</td></tr>
+        <tr><td>Nama Direktur Utama</td><td>:</td><td>${escapeHtml(
+          form.bahplNamaDirektur
+        )}</td></tr>
+        <tr><td>Alamat Perusahaan</td><td>:</td><td>${escapeHtml(
+          form.bahplAlamat
+        )}</td></tr>
+        <tr><td>Nomor Pokok Wajib Pajak (NPWP)</td><td>:</td><td>${escapeHtml(
+          form.bahplNpwp
+        )}</td></tr>
+        <tr><td>Harga Penawaran</td><td>:</td><td>Rp ${escapeHtml(
+          formatRupiahText(form.bahplHargaPenawaran)
+        )}</td></tr>
+        <tr><td>Harga Hasil Negosiasi</td><td>:</td><td>Rp ${escapeHtml(
+          formatRupiahText(form.bahplHargaNegosiasi)
+        )}</td></tr>
+      </table>
+
+      <div class="content-block ba-paragraph">${escapeHtml(
+        form.bahplKeteranganPenutup
+      )}</div>
+
+      <div class="content-block signature">
+        <div class="signature-inner">
+          <div>Pejabat Pengadaan Barang/Jasa</div>
+          <div>PT BPR NTB PERSERODA T.A 2026</div>
+          <div style="height: 60px;"></div>
+          <div class="strong"><u>${escapeHtml(
+            bahplPenandaTangan?.nama ?? ''
+          )}</u></div>
+          <div>NRP : ${escapeHtml(bahplPenandaTangan?.nrp ?? '')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  };
+
   const getPenunjukanPenyediaContentHtml = () => `
     <div class="pp-document">
       <div class="pp-date">${escapeHtml(form.penunjukanTempat)}, ${escapeHtml(
@@ -1267,6 +1657,12 @@ const ProcurementDocument = () => {
       ? getBeritaAcaraContentHtml()
       : isBuktiPengambilan
       ? getBuktiPengambilanContentHtml()
+      : isUndanganKlarifikasi
+      ? getUndanganKlarifikasiContentHtml()
+      : isBeritaKlarifikasi
+      ? getBeritaKlarifikasiContentHtml()
+      : isHasilPengadaan
+      ? getHasilPengadaanContentHtml()
       : isPenunjukanPenyedia
       ? getPenunjukanPenyediaContentHtml()
       : isSpk
@@ -1347,6 +1743,22 @@ const ProcurementDocument = () => {
           .bp-signature { display: flex; justify-content: flex-end; margin-top: 8mm; }
           .bp-signature-inner { width: 64mm; text-align: center; }
           .bp-signature-space { height: 24mm; }
+          .ukn-salam { margin: 0 0 10px; font-style: italic; font-weight: 700; }
+          .bakn-list td:nth-child(2) { width: auto; }
+          .hpl-document { padding: 3mm 0 0; font-size: 9pt; line-height: 1.25; }
+          .hpl-title-block { margin-bottom: 10px; text-align: center; }
+          .hpl-title-block h1 { margin: 0 0 3px; font-size: 13pt; font-weight: 700; text-decoration: underline; }
+          .hpl-table { table-layout: fixed; margin: 8px 0; border: 1.2px solid #000; box-sizing: border-box; }
+          .hpl-table th, .hpl-table td { border: 1.2px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; font-size: 8pt; word-wrap: break-word; }
+          .hpl-table th { font-weight: 400; }
+          .hpl-table th:nth-child(1), .hpl-table td:nth-child(1) { width: 6%; }
+          .hpl-table th:nth-child(2), .hpl-table td:nth-child(2) { width: 20%; text-align: left; }
+          .hpl-table th:nth-child(3), .hpl-table td:nth-child(3) { width: 18%; text-align: left; }
+          .hpl-table th:nth-child(8), .hpl-table td:nth-child(8) { width: 10%; }
+          .hpl-note { margin: 4px 0 14px; }
+          .hpl-summary td { padding: 0 6px 3px 0; vertical-align: top; }
+          .hpl-summary td:nth-child(1) { width: 58mm; white-space: nowrap; }
+          .hpl-summary td:nth-child(2) { width: 4mm; text-align: center; }
           .upper { text-transform: uppercase; }
           .pp-document { padding: 4mm 0 0; font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.3; }
           .pp-document table { font-size: 11pt; }
@@ -1618,6 +2030,9 @@ const ProcurementDocument = () => {
               {(isSuratUndangan ||
                 isBeritaAcaraPenjelasan ||
                 isBuktiPengambilan ||
+                isUndanganKlarifikasi ||
+                isBeritaKlarifikasi ||
+                isHasilPengadaan ||
                 isPenunjukanPenyedia ||
                 isSpk) && (
                 <button
@@ -2094,6 +2509,406 @@ const ProcurementDocument = () => {
                   />
                 </div>
               </div>
+            ) : isUndanganKlarifikasi ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <TextInput
+                    label="Lampiran"
+                    value={form.uknLampiran}
+                    onChange={(value) => updateForm('uknLampiran', value)}
+                  />
+                  <TextInput
+                    label="Tempat Surat"
+                    value={form.uknTempatSurat}
+                    onChange={(value) => updateForm('uknTempatSurat', value)}
+                  />
+                  <div>
+                    <TextInput
+                      label="Tanggal Surat"
+                      type="date"
+                      value={form.uknTanggalSurat}
+                      onChange={(value) =>
+                        updateForm('uknTanggalSurat', value)
+                      }
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {form.uknTempatSurat},{' '}
+                      {formatDateOnlyFromInput(form.uknTanggalSurat)}
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Jabatan Penerima"
+                    value={form.uknKepadaJabatan}
+                    onChange={(value) => updateForm('uknKepadaJabatan', value)}
+                  />
+                  <TextInput
+                    label="Nama Penyedia"
+                    value={form.uknNamaPenyedia}
+                    onChange={(value) => updateForm('uknNamaPenyedia', value)}
+                  />
+                  <TextInput
+                    label="Alamat"
+                    value={form.uknAlamat}
+                    onChange={(value) => updateForm('uknAlamat', value)}
+                  />
+                  <TextInput
+                    label="Perihal"
+                    value={form.uknPerihal}
+                    onChange={(value) => updateForm('uknPerihal', value)}
+                  />
+                  <TextInput
+                    label="Pekerjaan"
+                    value={form.uknPekerjaan}
+                    onChange={(value) => updateForm('uknPekerjaan', value)}
+                  />
+                  <div>
+                    <TextInput
+                      label="Waktu"
+                      type="time"
+                      value={form.uknWaktu}
+                      onChange={(value) => updateForm('uknWaktu', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatTimeWita(form.uknWaktu)} WITA
+                    </p>
+                  </div>
+                  <div>
+                    <TextInput
+                      label="Hari / Tanggal Pelaksanaan"
+                      type="date"
+                      value={form.uknHari}
+                      onChange={(value) => updateForm('uknHari', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatDateFromInput(form.uknHari)}
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Tempat"
+                    value={form.uknTempat}
+                    onChange={(value) => updateForm('uknTempat', value)}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <TextArea
+                    label="Paragraf Pembuka"
+                    value={form.uknParagrafPembuka}
+                    onChange={(value) =>
+                      updateForm('uknParagrafPembuka', value)
+                    }
+                  />
+                  <TextArea
+                    label="Paragraf Penutup"
+                    value={form.uknParagrafPenutup}
+                    onChange={(value) =>
+                      updateForm('uknParagrafPenutup', value)
+                    }
+                  />
+                </div>
+
+                <div className="rounded border border-stroke p-5 dark:border-strokedark md:ml-auto md:max-w-xl">
+                  <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                    Penanda Tangan
+                  </h4>
+                  <PbjSelect
+                    label="Pejabat Pengadaan Barang/Jasa PT BPR NTB PESERODA"
+                    value={form.uknPenandaTangan}
+                    options={selectedPengadaan.pbj}
+                    onChange={(value) => updateForm('uknPenandaTangan', value)}
+                  />
+                </div>
+              </div>
+            ) : isBeritaKlarifikasi ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <TextInput
+                      label="Hari / Tanggal"
+                      type="date"
+                      value={form.baknTanggal}
+                      onChange={(value) => updateForm('baknTanggal', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {(() => {
+                        const parts = getDatePartsIndonesia(form.baknTanggal);
+                        return `${parts.hari}, ${parts.tanggal} ${parts.bulan} ${parts.tahun}`;
+                      })()}
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Tempat"
+                    value={form.baknTempat}
+                    onChange={(value) => updateForm('baknTempat', value)}
+                  />
+                  <TextInput
+                    label="Nama Penyedia"
+                    value={form.baknNamaPenyedia}
+                    onChange={(value) => updateForm('baknNamaPenyedia', value)}
+                  />
+                  <TextInput
+                    label="Untuk Pekerjaan"
+                    value={form.baknPekerjaan}
+                    onChange={(value) => updateForm('baknPekerjaan', value)}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <TextArea
+                    label="Hasil Pembahasan 1 (Klarifikasi Teknis)"
+                    value={form.baknHasil1}
+                    onChange={(value) => updateForm('baknHasil1', value)}
+                  />
+                  <TextArea
+                    label="Hasil Pembahasan 2 (Negosiasi Harga)"
+                    value={form.baknHasil2}
+                    onChange={(value) => updateForm('baknHasil2', value)}
+                  />
+                  <TextArea
+                    label="Hasil Pembahasan 3 (Pembuktian Kualifikasi)"
+                    value={form.baknHasil3}
+                    onChange={(value) => updateForm('baknHasil3', value)}
+                  />
+                  <TextArea
+                    label="Keterangan Penutup"
+                    value={form.baknKeteranganPenutup}
+                    onChange={(value) =>
+                      updateForm('baknKeteranganPenutup', value)
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                    <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                      Penanda Tangan Penyedia
+                    </h4>
+                    <TextInput
+                      label="Nama Direktur"
+                      value={form.baknNamaDirektur}
+                      onChange={(value) =>
+                        updateForm('baknNamaDirektur', value)
+                      }
+                    />
+                  </div>
+
+                  <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                    <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                      Penanda Tangan PBJ
+                    </h4>
+                    <PbjSelect
+                      label="Pejabat Pengadaan Barang/Jasa PT BPR NTB PESERODA"
+                      value={form.baknPenandaTangan}
+                      options={selectedPengadaan.pbj}
+                      onChange={(value) =>
+                        updateForm('baknPenandaTangan', value)
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : isHasilPengadaan ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <TextInput
+                      label="Hari / Tanggal"
+                      type="date"
+                      value={form.bahplTanggal}
+                      onChange={(value) => updateForm('bahplTanggal', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {(() => {
+                        const parts = getDatePartsIndonesia(form.bahplTanggal);
+                        return `${parts.hari}, ${parts.tanggal} ${parts.bulan} ${parts.tahun}`;
+                      })()}
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Pekerjaan"
+                    value={form.bahplPekerjaan}
+                    onChange={(value) => updateForm('bahplPekerjaan', value)}
+                  />
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                      HPS
+                    </label>
+                    <div className="flex overflow-hidden rounded border border-stroke bg-white focus-within:border-primary dark:border-form-strokedark dark:bg-form-input">
+                      <span className="flex items-center border-r border-stroke bg-gray-2 px-4 text-sm font-semibold text-black dark:border-form-strokedark dark:bg-meta-4 dark:text-white">
+                        Rp
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={formatRupiahText(form.bahplHps)}
+                        onChange={(event) =>
+                          updateForm(
+                            'bahplHps',
+                            event.target.value.replace(/\D/g, '')
+                          )
+                        }
+                        className="w-full bg-transparent px-4 py-3 text-sm text-black outline-none dark:text-white"
+                      />
+                    </div>
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatRupiahTerbilang(form.bahplHps) || '-'}
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Unsur Evaluasi"
+                    value={form.bahplUnsurEvaluasi}
+                    onChange={(value) =>
+                      updateForm('bahplUnsurEvaluasi', value)
+                    }
+                  />
+                </div>
+
+                <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                  <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                    Hasil Evaluasi
+                  </h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <TextInput
+                      label="Nama Perusahaan"
+                      value={form.bahplNamaPerusahaan}
+                      onChange={(value) =>
+                        updateForm('bahplNamaPerusahaan', value)
+                      }
+                    />
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                        Harga Penawaran
+                      </label>
+                      <div className="flex overflow-hidden rounded border border-stroke bg-white focus-within:border-primary dark:border-form-strokedark dark:bg-form-input">
+                        <span className="flex items-center border-r border-stroke bg-gray-2 px-4 text-sm font-semibold text-black dark:border-form-strokedark dark:bg-meta-4 dark:text-white">
+                          Rp
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={formatRupiahText(form.bahplHargaPenawaran)}
+                          onChange={(event) =>
+                            updateForm(
+                              'bahplHargaPenawaran',
+                              event.target.value.replace(/\D/g, '')
+                            )
+                          }
+                          className="w-full bg-transparent px-4 py-3 text-sm text-black outline-none dark:text-white"
+                        />
+                      </div>
+                    </div>
+                    <EvalSelect
+                      label="Evaluasi Administrasi"
+                      value={form.bahplEvalAdministrasi}
+                      onChange={(value) =>
+                        updateForm('bahplEvalAdministrasi', value)
+                      }
+                    />
+                    <EvalSelect
+                      label="Evaluasi Teknis"
+                      value={form.bahplEvalTeknis}
+                      onChange={(value) =>
+                        updateForm('bahplEvalTeknis', value)
+                      }
+                    />
+                    <EvalSelect
+                      label="Evaluasi Harga"
+                      value={form.bahplEvalHarga}
+                      onChange={(value) =>
+                        updateForm('bahplEvalHarga', value)
+                      }
+                    />
+                    <EvalSelect
+                      label="Evaluasi Kualifikasi"
+                      value={form.bahplEvalKualifikasi}
+                      onChange={(value) =>
+                        updateForm('bahplEvalKualifikasi', value)
+                      }
+                    />
+                    <EvalSelect
+                      label="Keterangan"
+                      value={form.bahplKet}
+                      onChange={(value) => updateForm('bahplKet', value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                  <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                    Kesimpulan Peserta
+                  </h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <TextInput
+                      label="Nama Penyedia"
+                      value={form.bahplNamaPenyedia}
+                      onChange={(value) =>
+                        updateForm('bahplNamaPenyedia', value)
+                      }
+                    />
+                    <TextInput
+                      label="Nama Direktur Utama"
+                      value={form.bahplNamaDirektur}
+                      onChange={(value) =>
+                        updateForm('bahplNamaDirektur', value)
+                      }
+                    />
+                    <TextInput
+                      label="Alamat Perusahaan"
+                      value={form.bahplAlamat}
+                      onChange={(value) => updateForm('bahplAlamat', value)}
+                    />
+                    <TextInput
+                      label="Nomor Pokok Wajib Pajak (NPWP)"
+                      value={form.bahplNpwp}
+                      onChange={(value) => updateForm('bahplNpwp', value)}
+                    />
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                        Harga Hasil Negosiasi
+                      </label>
+                      <div className="flex overflow-hidden rounded border border-stroke bg-white focus-within:border-primary dark:border-form-strokedark dark:bg-form-input">
+                        <span className="flex items-center border-r border-stroke bg-gray-2 px-4 text-sm font-semibold text-black dark:border-form-strokedark dark:bg-meta-4 dark:text-white">
+                          Rp
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={formatRupiahText(form.bahplHargaNegosiasi)}
+                          onChange={(event) =>
+                            updateForm(
+                              'bahplHargaNegosiasi',
+                              event.target.value.replace(/\D/g, '')
+                            )
+                          }
+                          className="w-full bg-transparent px-4 py-3 text-sm text-black outline-none dark:text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <TextArea
+                  label="Keterangan Penutup"
+                  value={form.bahplKeteranganPenutup}
+                  onChange={(value) =>
+                    updateForm('bahplKeteranganPenutup', value)
+                  }
+                />
+
+                <div className="rounded border border-stroke p-5 dark:border-strokedark md:ml-auto md:max-w-xl">
+                  <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                    Penanda Tangan
+                  </h4>
+                  <PbjSelect
+                    label="Pejabat Pengadaan Barang/Jasa PT BPR NTB PESERODA"
+                    value={form.bahplPenandaTangan}
+                    options={selectedPengadaan.pbj}
+                    onChange={(value) =>
+                      updateForm('bahplPenandaTangan', value)
+                    }
+                  />
+                </div>
+              </div>
             ) : isPenunjukanPenyedia ? (
               <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -2343,6 +3158,12 @@ const ProcurementDocument = () => {
                       ? form.beritaNamaPenjelasanPekerjaan
                       : isBuktiPengambilan
                       ? form.buktiPekerjaan
+                      : isUndanganKlarifikasi
+                      ? form.uknPekerjaan
+                      : isBeritaKlarifikasi
+                      ? form.baknPekerjaan
+                      : isHasilPengadaan
+                      ? form.bahplPekerjaan
                       : isPenunjukanPenyedia
                       ? form.penunjukanPerihal
                       : isSpk

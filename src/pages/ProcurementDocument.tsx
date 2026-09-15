@@ -159,6 +159,70 @@ const formatDateOnlyFromInput = (value: string) => {
 
 const formatTimeWita = (value: string) => value.replace(':', '.');
 
+const angkaTerbilang = (value: number): string => {
+  const satuan = [
+    '',
+    'Satu',
+    'Dua',
+    'Tiga',
+    'Empat',
+    'Lima',
+    'Enam',
+    'Tujuh',
+    'Delapan',
+    'Sembilan',
+    'Sepuluh',
+    'Sebelas',
+  ];
+
+  const n = Math.floor(Math.abs(value));
+
+  if (n < 12) return satuan[n];
+  if (n < 20) return `${angkaTerbilang(n - 10)} Belas`;
+  if (n < 100)
+    return `${angkaTerbilang(Math.floor(n / 10))} Puluh${
+      n % 10 ? ` ${angkaTerbilang(n % 10)}` : ''
+    }`;
+  if (n < 200) return `Seratus${n - 100 ? ` ${angkaTerbilang(n - 100)}` : ''}`;
+  if (n < 1000)
+    return `${angkaTerbilang(Math.floor(n / 100))} Ratus${
+      n % 100 ? ` ${angkaTerbilang(n % 100)}` : ''
+    }`;
+  if (n < 2000) return `Seribu${n - 1000 ? ` ${angkaTerbilang(n - 1000)}` : ''}`;
+  if (n < 1000000)
+    return `${angkaTerbilang(Math.floor(n / 1000))} Ribu${
+      n % 1000 ? ` ${angkaTerbilang(n % 1000)}` : ''
+    }`;
+  if (n < 1000000000)
+    return `${angkaTerbilang(Math.floor(n / 1000000))} Juta${
+      n % 1000000 ? ` ${angkaTerbilang(n % 1000000)}` : ''
+    }`;
+
+  return `${angkaTerbilang(Math.floor(n / 1000000000))} Miliar${
+    n % 1000000000 ? ` ${angkaTerbilang(n % 1000000000)}` : ''
+  }`;
+};
+
+const getDatePartsIndonesia = (value: string) => {
+  if (!value) return { hari: '-', tanggal: '-', bulan: '-', tahun: '-' };
+
+  const date = new Date(`${value}T00:00:00`);
+
+  return {
+    hari: new Intl.DateTimeFormat('id-ID', { weekday: 'long' }).format(date),
+    tanggal: angkaTerbilang(date.getDate()),
+    bulan: new Intl.DateTimeFormat('id-ID', { month: 'long' }).format(date),
+    tahun: angkaTerbilang(date.getFullYear()),
+  };
+};
+
+const formatRupiahTerbilang = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+
+  return `${angkaTerbilang(Number(digits))} Rupiah`;
+};
+
 const maxImageFileSize = 1.5 * 1024 * 1024;
 const documentBodyInset = 28;
 
@@ -317,6 +381,13 @@ const ProcurementDocument = () => {
     !isPreview && documentName === 'Berita Acara Penjelasan Pekerjaan';
   const isBuktiPengambilan =
     !isPreview && documentName === 'Bukti Pengambilan Dokumen Pengadaan';
+  const isUndanganKlarifikasi =
+    !isPreview && documentName === 'Undangan Klarifikasi dan Negosiasi';
+  const isBeritaKlarifikasi =
+    !isPreview &&
+    documentName === 'Berita Acara Klarifikasi dan Negosiasi Dokumen';
+  const isHasilPengadaan =
+    !isPreview && documentName === 'Berita Acara Hasil Pengadaan Langsung';
   const [nomorDokumen, setNomorDokumen] = useState(
     getNomorDokumen(selectedIndex)
   );
@@ -363,6 +434,22 @@ const ProcurementDocument = () => {
     buktiNamaPejabatPerusahaan: 'Amien',
     buktiJabatanPejabat: 'Direktur Eksekutif',
     buktiPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
+    uknLampiran: '1 (satu) gabung',
+    uknTempatSurat: selectedPengadaan.tempatPenandatanganan,
+    uknTanggalSurat: '2026-08-03',
+    uknKepadaJabatan: 'Direktur',
+    uknNamaPenyedia: selectedPengadaan.namaPenyedia,
+    uknAlamat: selectedPengadaan.alamat,
+    uknPerihal: 'Undangan Klarifikasi dan Negosiasi',
+    uknPekerjaan: selectedPengadaan.judulPengadaan,
+    uknWaktu: '11:00',
+    uknHari: '2026-08-04',
+    uknTempat: 'Ruang Rapat Kantor PT BPR NTB PERSERODA',
+    uknParagrafPembuka:
+      'Berdasarkan hasil evaluasi yang kami lakukan, penawaran Saudara kami nyatakan memenuhi syarat. Sehubungan dengan hal tersebut, kami mengundang Saudara dalam rangka klarifikasi, negosiasi harga, dan pembuktian kualifikasi dengan keterangan sebagai berikut ini :',
+    uknParagrafPenutup:
+      'Dalam Pembuktian Kualifikasi, mohon kiranya membawa dokumen aseli terhadap dokumen yang dicantumkan dalam dokumen penawaran. Demikian atas perhatian dan kehadiran saudara disampaikan terima kasih.',
+    uknPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
   });
   const [showResultModal, setShowResultModal] = useState(false);
   const [useHeaderFooter] = useState(true);
@@ -386,6 +473,7 @@ const ProcurementDocument = () => {
   const beritaTanyaJawab = getPbjByNrp(form.beritaRapatTanyaJawab);
   const beritaPenandaTangan = getPbjByNrp(form.beritaPenandaTangan);
   const buktiPenandaTangan = getPbjByNrp(form.buktiPenandaTangan);
+  const uknPenandaTangan = getPbjByNrp(form.uknPenandaTangan);
   const kegiatanRows = [
     {
       nama: form.namaKegiatan || 'Penjelasan Pekerjaan',
@@ -537,10 +625,13 @@ const ProcurementDocument = () => {
     documentTemplate.header.src && documentTemplate.footer.src
   );
   const isHeaderFooterRequired =
-    isSuratUndangan || isBuktiPengambilan;
+    isSuratUndangan ||
+    isBuktiPengambilan ||
+    isUndanganKlarifikasi ||
+    isBeritaKlarifikasi ||
+    isHasilPengadaan;
   const effectiveUseHeaderFooter =
-    (isSuratUndangan || isBuktiPengambilan) &&
-    (isHeaderFooterRequired || useHeaderFooter);
+    isHeaderFooterRequired && (isHeaderFooterRequired || useHeaderFooter);
   const canDownloadDocument =
     !isHeaderFooterRequired || hasCompleteHeaderFooterImages;
 
@@ -973,11 +1064,78 @@ const ProcurementDocument = () => {
     </div>
   `;
 
+  const getUndanganKlarifikasiContentHtml = () => `
+    <div class="content-block top-date" style="text-align: right;">${escapeHtml(
+      form.uknTempatSurat
+    )}, ${escapeHtml(formatDateOnlyFromInput(form.uknTanggalSurat))}</div>
+
+    <table class="content-block meta mb">
+      <tr><td class="meta-label">Nomor</td><td class="colon-mark">:</td><td>${escapeHtml(
+        nomorDokumen
+      )}</td></tr>
+      <tr><td class="meta-label">Lampiran</td><td class="colon-mark">:</td><td>${escapeHtml(
+        form.uknLampiran
+      )}</td></tr>
+    </table>
+
+    <div class="content-block mb">
+      <div>Kepada Yth.</div>
+      <div>${escapeHtml(form.uknKepadaJabatan)} - ${escapeHtml(
+        form.uknNamaPenyedia
+      )}</div>
+      <div class="address-indent">di -</div>
+      <div class="address-indent" style="margin-left: 32px;">${escapeHtml(
+        form.uknAlamat
+      )}</div>
+    </div>
+
+    <table class="content-block meta subject mb">
+      <tr><td class="meta-label">Perihal</td><td class="colon-mark">:</td><td class="strong">${escapeHtml(
+        form.uknPerihal
+      )}</td></tr>
+    </table>
+
+    <div class="content-block ukn-salam">Bismillahirrahmanirrahiim<br />Assalamu'alaikum Warahmatullahi Wabarakatuh</div>
+
+    <div class="content-block"><p>${escapeHtml(form.uknParagrafPembuka)}</p></div>
+
+    <table class="content-block row-table mb">
+      <tr><td class="colon-label">Pekerjaan</td><td class="colon-mark">:</td><td>${escapeHtml(
+        form.uknPekerjaan
+      )}</td></tr>
+      <tr><td class="colon-label">Waktu</td><td class="colon-mark">:</td><td>${escapeHtml(
+        formatTimeWita(form.uknWaktu)
+      )} Wita</td></tr>
+      <tr><td class="colon-label">Hari</td><td class="colon-mark">:</td><td>${escapeHtml(
+        formatDateFromInput(form.uknHari)
+      )}</td></tr>
+      <tr><td class="colon-label">Tempat</td><td class="colon-mark">:</td><td>${escapeHtml(
+        form.uknTempat
+      )}</td></tr>
+    </table>
+
+    <div class="content-block"><p>${escapeHtml(form.uknParagrafPenutup)}</p></div>
+
+    <div class="content-block ukn-salam">Wassalamu'alaikaum Warahmatullahi Wabarakatuh</div>
+
+    <div class="content-block signature">
+      <div class="signature-inner">
+        <div>Pejabat Pengadaan Barang/Jasa</div>
+        <div>PT BPR NTB PERSERODA T.A 2026</div>
+        <div style="height: 60px;"></div>
+        <div class="strong"><u>${escapeHtml(uknPenandaTangan?.nama ?? '')}</u></div>
+        <div>NRP : ${escapeHtml(uknPenandaTangan?.nrp ?? '')}</div>
+      </div>
+    </div>
+  `;
+
   const getDocumentContentHtml = () =>
     isBeritaAcaraPenjelasan
       ? getBeritaAcaraContentHtml()
       : isBuktiPengambilan
       ? getBuktiPengambilanContentHtml()
+      : isUndanganKlarifikasi
+      ? getUndanganKlarifikasiContentHtml()
       : getSuratUndanganContentHtml();
 
   const getDocumentHtml = (enablePagination = true) => `
@@ -1054,6 +1212,7 @@ const ProcurementDocument = () => {
           .bp-signature { display: flex; justify-content: flex-end; margin-top: 8mm; }
           .bp-signature-inner { width: 64mm; text-align: center; }
           .bp-signature-space { height: 24mm; }
+          .ukn-salam { margin: 0 0 10px; font-style: italic; font-weight: 700; }
           .document-source, template { display: none; }
           @media print {
             html, body { background: #fff; }
@@ -1297,7 +1456,10 @@ const ProcurementDocument = () => {
             <div className="flex gap-2">
               {(isSuratUndangan ||
                 isBeritaAcaraPenjelasan ||
-                isBuktiPengambilan) && (
+                isBuktiPengambilan ||
+                isUndanganKlarifikasi ||
+                isBeritaKlarifikasi ||
+                isHasilPengadaan) && (
                 <button
                   type="button"
                   onClick={openResultModal}
@@ -1772,6 +1934,116 @@ const ProcurementDocument = () => {
                   />
                 </div>
               </div>
+            ) : isUndanganKlarifikasi ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <TextInput
+                    label="Lampiran"
+                    value={form.uknLampiran}
+                    onChange={(value) => updateForm('uknLampiran', value)}
+                  />
+                  <TextInput
+                    label="Tempat Surat"
+                    value={form.uknTempatSurat}
+                    onChange={(value) => updateForm('uknTempatSurat', value)}
+                  />
+                  <div>
+                    <TextInput
+                      label="Tanggal Surat"
+                      type="date"
+                      value={form.uknTanggalSurat}
+                      onChange={(value) =>
+                        updateForm('uknTanggalSurat', value)
+                      }
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {form.uknTempatSurat},{' '}
+                      {formatDateOnlyFromInput(form.uknTanggalSurat)}
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Jabatan Penerima"
+                    value={form.uknKepadaJabatan}
+                    onChange={(value) => updateForm('uknKepadaJabatan', value)}
+                  />
+                  <TextInput
+                    label="Nama Penyedia"
+                    value={form.uknNamaPenyedia}
+                    onChange={(value) => updateForm('uknNamaPenyedia', value)}
+                  />
+                  <TextInput
+                    label="Alamat"
+                    value={form.uknAlamat}
+                    onChange={(value) => updateForm('uknAlamat', value)}
+                  />
+                  <TextInput
+                    label="Perihal"
+                    value={form.uknPerihal}
+                    onChange={(value) => updateForm('uknPerihal', value)}
+                  />
+                  <TextInput
+                    label="Pekerjaan"
+                    value={form.uknPekerjaan}
+                    onChange={(value) => updateForm('uknPekerjaan', value)}
+                  />
+                  <div>
+                    <TextInput
+                      label="Waktu"
+                      type="time"
+                      value={form.uknWaktu}
+                      onChange={(value) => updateForm('uknWaktu', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatTimeWita(form.uknWaktu)} WITA
+                    </p>
+                  </div>
+                  <div>
+                    <TextInput
+                      label="Hari / Tanggal Pelaksanaan"
+                      type="date"
+                      value={form.uknHari}
+                      onChange={(value) => updateForm('uknHari', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatDateFromInput(form.uknHari)}
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Tempat"
+                    value={form.uknTempat}
+                    onChange={(value) => updateForm('uknTempat', value)}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <TextArea
+                    label="Paragraf Pembuka"
+                    value={form.uknParagrafPembuka}
+                    onChange={(value) =>
+                      updateForm('uknParagrafPembuka', value)
+                    }
+                  />
+                  <TextArea
+                    label="Paragraf Penutup"
+                    value={form.uknParagrafPenutup}
+                    onChange={(value) =>
+                      updateForm('uknParagrafPenutup', value)
+                    }
+                  />
+                </div>
+
+                <div className="rounded border border-stroke p-5 dark:border-strokedark md:ml-auto md:max-w-xl">
+                  <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                    Penanda Tangan
+                  </h4>
+                  <PbjSelect
+                    label="Pejabat Pengadaan Barang/Jasa PT BPR NTB PESERODA"
+                    value={form.uknPenandaTangan}
+                    options={selectedPengadaan.pbj}
+                    onChange={(value) => updateForm('uknPenandaTangan', value)}
+                  />
+                </div>
+              </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded border border-stroke p-5 dark:border-strokedark">
@@ -1816,6 +2088,12 @@ const ProcurementDocument = () => {
                       ? form.beritaNamaPenjelasanPekerjaan
                       : isBuktiPengambilan
                       ? form.buktiPekerjaan
+                      : isUndanganKlarifikasi
+                      ? form.uknPekerjaan
+                      : isBeritaKlarifikasi
+                      ? form.baknPekerjaan
+                      : isHasilPengadaan
+                      ? form.bahplPekerjaan
                       : form.namaPaketPekerjaan}
                   </p>
                 </div>

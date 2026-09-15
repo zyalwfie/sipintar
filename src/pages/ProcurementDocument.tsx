@@ -1,0 +1,1945 @@
+import { ChangeEvent, RefObject, useRef, useState } from 'react';
+import {
+  FiArrowLeft,
+  FiDownload,
+  FiEye,
+  FiFileText,
+  FiImage,
+  FiMinus,
+  FiPlus,
+  FiTrash2,
+  FiUpload,
+  FiX,
+} from 'react-icons/fi';
+import { Link, useParams } from 'react-router-dom';
+import {
+  DocumentTemplateAsset,
+  DocumentTemplateSettings,
+  documentAssetPositionOptions,
+  getDocumentTemplateSettings,
+  saveDocumentTemplateSettings,
+} from '../utils/documentTemplate';
+
+const dokumenPelaksana = [
+  'Surat Undangan Pengadaan',
+  'Berita Acara Penjelasan Pekerjaan',
+  'Bukti Pengambilan Dokumen Pengadaan',
+  'Berita Acara Pemasukan dan Pembukaan Dokumen',
+  'Tanda Terima Pemasukan Dokumen',
+  'Berita Acara Evaluasi Dokumen',
+  'Undangan Klarifikasi dan Negosiasi',
+  'Berita Acara Klarifikasi dan Negosiasi Dokumen',
+  'Berita Acara Hasil Pengadaan Langsung',
+  'Penunjukan Penyedia Pengadaan',
+  'SPK atau Kontrak Kerja',
+  'SPMK',
+  'Berita Acara Pemeriksaan Pekerjaan',
+  'Berita Acara Serah Terima Pekerjaan',
+  'Pengajuan Pembayaran',
+];
+
+const pengadaanTitles = [
+  'Pengadaan Laptop Operasional Kantor',
+  'Pengadaan Meja dan Kursi Ruang Rapat',
+  'Pengadaan Lisensi Software Akuntansi',
+  'Pengadaan Kendaraan Operasional Cabang',
+  'Pengadaan Perangkat Jaringan Internal',
+];
+
+const pengadaanData = [
+  {
+    namaPenyedia: 'PT Nusa Teknologi Mandiri',
+    namaDirektur: 'I Gede Wirawan',
+    alamat: 'Jl. Langko No. 12, Mataram',
+    email: 'admin.1@vendor.co.id',
+    judulPengadaan: 'Pengadaan Laptop Operasional Kantor',
+    hps: '185000000',
+    tempatPenandatanganan: 'Mataram',
+    pbj: [
+      { nama: 'Ni Putu Maharani', nrp: '19910622' },
+      { nama: 'Muhammad Rizal Fahri', nrp: '19891105' },
+    ],
+  },
+  {
+    namaPenyedia: 'CV Sinar Berkah Abadi',
+    namaDirektur: 'Hendra Saputra',
+    alamat: 'Jl. Pejanggik No. 45, Mataram',
+    email: 'admin.2@vendor.co.id',
+    judulPengadaan: 'Pengadaan Meja dan Kursi Ruang Rapat',
+    hps: '72500000',
+    tempatPenandatanganan: 'Mataram',
+    pbj: [
+      { nama: 'Ni Putu Maharani', nrp: '19910622' },
+      { nama: 'Siti Rahmawati', nrp: '19920914' },
+    ],
+  },
+  {
+    namaPenyedia: 'PT Prima Solusi Digital',
+    namaDirektur: 'Dewi Kartika Sari',
+    alamat: 'Jl. Sriwijaya No. 18, Mataram',
+    email: 'admin.3@vendor.co.id',
+    judulPengadaan: 'Pengadaan Lisensi Software Akuntansi',
+    hps: '128750000',
+    tempatPenandatanganan: 'Mataram',
+    pbj: [
+      { nama: 'Muhammad Rizal Fahri', nrp: '19891105' },
+      { nama: 'Gede Arya Wiratama', nrp: '19850330' },
+    ],
+  },
+  {
+    namaPenyedia: 'CV Karya Logistik Nusantara',
+    namaDirektur: 'Fajar Nugroho',
+    alamat: 'Jl. Sandubaya No. 7, Mataram',
+    email: 'admin.4@vendor.co.id',
+    judulPengadaan: 'Pengadaan Kendaraan Operasional Cabang',
+    hps: '342000000',
+    tempatPenandatanganan: 'Mataram',
+    pbj: [
+      { nama: 'Ayu Lestari Dewi', nrp: '19940718' },
+      { nama: 'Ni Putu Maharani', nrp: '19910622' },
+    ],
+  },
+  {
+    namaPenyedia: 'PT Citra Sarana Sejahtera',
+    namaDirektur: 'Agus Mahendra',
+    alamat: 'Jl. Udayana No. 22, Mataram',
+    email: 'admin.5@vendor.co.id',
+    judulPengadaan: 'Pengadaan Perangkat Jaringan Internal',
+    hps: '96500000',
+    tempatPenandatanganan: 'Mataram',
+    pbj: [
+      { nama: 'Siti Rahmawati', nrp: '19920914' },
+      { nama: 'Muhammad Rizal Fahri', nrp: '19891105' },
+    ],
+  },
+];
+
+const formatTanggalIndonesia = () =>
+  new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+
+const getNomorDokumen = (index: number) => {
+  const now = new Date();
+  const nomorUrut = String(index + 1).padStart(3, '0');
+  const bulan = String(now.getMonth() + 1).padStart(2, '0');
+  return `${nomorUrut}.${bulan}.PBJ./BPR-NTB/2026`;
+};
+
+const formatRupiahText = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+
+  return new Intl.NumberFormat('id-ID').format(Number(digits));
+};
+
+const formatDateFromInput = (value: string) => {
+  if (!value) return '-';
+
+  return new Intl.DateTimeFormat('id-ID', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00`));
+};
+
+const formatDateOnlyFromInput = (value: string) => {
+  if (!value) return '-';
+
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00`));
+};
+
+const formatTimeWita = (value: string) => value.replace(':', '.');
+
+const maxImageFileSize = 1.5 * 1024 * 1024;
+const documentBodyInset = 28;
+
+const readFileAsDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+const escapeHtmlWithBreaks = (value: string) =>
+  escapeHtml(value).replace(/\n/g, '<br />');
+
+const formatBeritaText = (value: string) =>
+  escapeHtmlWithBreaks(
+    value.replace(/berlaku\.\s+Demikian/g, 'berlaku.\n\nDemikian')
+  );
+
+const TextInput = ({
+  label,
+  value,
+  onChange,
+  type = 'text',
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+}) => (
+  <div>
+    <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+      {label}
+    </label>
+    <input
+      type={type}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+    />
+  </div>
+);
+
+const TextArea = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) => (
+  <div>
+    <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+      {label}
+    </label>
+    <textarea
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      rows={4}
+      className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white dark:focus:border-primary"
+    />
+  </div>
+);
+
+const PbjSelect = ({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { nama: string; nrp: string }[];
+  onChange: (value: string) => void;
+}) => (
+  <div>
+    <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+      {label}
+    </label>
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+    >
+      {options.map((pegawai) => (
+        <option key={pegawai.nrp} value={pegawai.nrp}>
+          {pegawai.nama} - NRP : {pegawai.nrp}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
+const getAssetJustifyClass = (position: DocumentTemplateAsset['position']) => {
+  if (position === 'left') return 'justify-start';
+  if (position === 'right') return 'justify-end';
+
+  return 'justify-center';
+};
+
+const getHtmlJustifyContent = (position: DocumentTemplateAsset['position']) => {
+  if (position === 'left') return 'flex-start';
+  if (position === 'right') return 'flex-end';
+
+  return 'center';
+};
+
+const getDocumentAssetHtml = (
+  asset: DocumentTemplateAsset,
+  label: string
+) => {
+  if (!asset.src) return '';
+
+  const imageWidth = asset.position === 'stretch' ? 'width: 100%;' : '';
+
+  return `
+    <div style="display: flex; justify-content: ${getHtmlJustifyContent(
+      asset.position
+    )}; margin: ${asset.marginTop}px 0 ${asset.marginBottom}px;">
+      <img
+        src="${escapeHtml(asset.src)}"
+        alt="${escapeHtml(label)}"
+        style="display: block; max-width: 100%; height: ${
+          asset.height
+        }px; ${imageWidth} object-fit: contain;"
+      />
+    </div>
+  `;
+};
+
+const ProcurementDocument = () => {
+  const headerImageInputRef = useRef<HTMLInputElement | null>(null);
+  const footerImageInputRef = useRef<HTMLInputElement | null>(null);
+  const { id, documentIndex, action } = useParams();
+  const selectedIndex = Math.max(Number(documentIndex ?? 1) - 1, 0);
+  const documentName =
+    dokumenPelaksana[selectedIndex] ?? dokumenPelaksana[0];
+  const selectedPengadaan =
+    pengadaanData[Math.max(Number(id ?? 1) - 1, 0)] ?? pengadaanData[0];
+  const pengadaanTitle =
+    pengadaanTitles[Math.max(Number(id ?? 1) - 1, 0)] ??
+    selectedPengadaan.judulPengadaan;
+  const isPreview = action === 'lihat';
+  const isSuratUndangan =
+    !isPreview && documentName === 'Surat Undangan Pengadaan';
+  const isBeritaAcaraPenjelasan =
+    !isPreview && documentName === 'Berita Acara Penjelasan Pekerjaan';
+  const isBuktiPengambilan =
+    !isPreview && documentName === 'Bukti Pengambilan Dokumen Pengadaan';
+  const [nomorDokumen, setNomorDokumen] = useState(
+    getNomorDokumen(selectedIndex)
+  );
+  const [form, setForm] = useState({
+    lampiran: '1 (satu) berkas',
+    kepadaYth: selectedPengadaan.namaPenyedia,
+    di: selectedPengadaan.alamat,
+    email: selectedPengadaan.email,
+    perihal: documentName,
+    namaPaketPekerjaan: selectedPengadaan.judulPengadaan,
+    nilaiTotalHps: selectedPengadaan.hps,
+    tempatSurat: selectedPengadaan.tempatPenandatanganan,
+    tanggalSurat: '2026-07-29',
+    hariPelaksanaan: '2026-07-29',
+    waktuMulai: '10:00',
+    waktuSelesai: '12:00',
+    tempatPelaksanaan: selectedPengadaan.tempatPenandatanganan,
+    namaKegiatan: 'Penjelasan Pekerjaan',
+    tanggalKegiatan: '2026-07-31',
+    waktuKegiatanMulai: '10:00',
+    waktuKegiatanSelesai: '12:00',
+    keteranganTujuan:
+      'Dengan ini mengharapkan kehadiran Saudara untuk mengikuti Penjelasan Pekerjaan, yang akan diadakan pada : ',
+    keteranganPermohonan:
+      'Saudara diminta untuk memasukkan penawaran administrasi, teknis dan harga secara langsung dan melaksanakan klarifikasi dan Negosiasi pada : ',
+    penandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
+    beritaTanggal: '2026-07-29',
+    beritaPukul: '11:00',
+    beritaTempat: selectedPengadaan.tempatPenandatanganan,
+    beritaPeserta: selectedPengadaan.judulPengadaan,
+    beritaNamaPenjelasanPekerjaan: selectedPengadaan.judulPengadaan,
+    beritaKeteranganAwal: 'Dengan hasil terlampir sebagai berikut : ',
+    beritaRapatDipimpinPpk: selectedPengadaan.pbj[0]?.nrp ?? '',
+    beritaPenjelasanAdministrasiPpbj: selectedPengadaan.pbj[0]?.nrp ?? '',
+    beritaPenjelasanTeknikPpbj: selectedPengadaan.pbj[0]?.nrp ?? '',
+    beritaRapatTanyaJawab: selectedPengadaan.pbj[0]?.nrp ?? '',
+    beritaKeteranganTujuan:
+      'Penjelasan Pekerjaan ini ditutup pada Tanggal tersebut di atas pada pukul 11.00 WITA.\n\nSelanjutnya calon penyedia barang/jasa diminta segera memasukkan dokumen penawaran pada hari operasional kerja setelah penjelasan pekerjaan untuk diproses lebih lanjut oleh Pejabat Pengadaan barang/jasa sesuai dengan ketentuan yang berlaku.\n\nDemikian Berita Acara ini dibuat untuk dipergunakan sebagaimana mestinya.',
+    beritaPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
+    buktiPekerjaan: selectedPengadaan.judulPengadaan,
+    buktiTanggal: '2026-07-30',
+    buktiWaktu: '11:00',
+    buktiNamaPerusahaan: 'Muamalat Institute',
+    buktiNamaPejabatPerusahaan: 'Amien',
+    buktiJabatanPejabat: 'Direktur Eksekutif',
+    buktiPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
+  });
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [useHeaderFooter] = useState(true);
+  const [showImageSettings, setShowImageSettings] = useState(false);
+  const [imageSettingsMessage, setImageSettingsMessage] = useState('');
+  const [documentTemplate, setDocumentTemplate] =
+    useState<DocumentTemplateSettings>(() => getDocumentTemplateSettings());
+
+  const selectedPenandaTangan =
+    selectedPengadaan.pbj.find(
+      (pegawai) => pegawai.nrp === form.penandaTangan
+    ) ?? selectedPengadaan.pbj[0];
+  const getPbjByNrp = (nrp: string) =>
+    selectedPengadaan.pbj.find((pegawai) => pegawai.nrp === nrp) ??
+    selectedPengadaan.pbj[0];
+  const beritaRapatDipimpin = getPbjByNrp(form.beritaRapatDipimpinPpk);
+  const beritaAdministrasi = getPbjByNrp(
+    form.beritaPenjelasanAdministrasiPpbj
+  );
+  const beritaTeknik = getPbjByNrp(form.beritaPenjelasanTeknikPpbj);
+  const beritaTanyaJawab = getPbjByNrp(form.beritaRapatTanyaJawab);
+  const beritaPenandaTangan = getPbjByNrp(form.beritaPenandaTangan);
+  const buktiPenandaTangan = getPbjByNrp(form.buktiPenandaTangan);
+  const kegiatanRows = [
+    {
+      nama: form.namaKegiatan || 'Penjelasan Pekerjaan',
+      tanggal: formatDateFromInput(form.tanggalKegiatan),
+      waktu: `${formatTimeWita(form.waktuKegiatanMulai)} WITA s.d ${formatTimeWita(
+        form.waktuKegiatanSelesai
+      )} WITA`,
+    },
+    {
+      nama: 'Pemasukan Dokumen Penawaran',
+      tanggal: formatDateFromInput(form.hariPelaksanaan),
+      waktu: `${formatTimeWita(form.waktuMulai)} WITA s.d ${formatTimeWita(
+        form.waktuSelesai
+      )} WITA`,
+    },
+    {
+      nama: 'Klarifikasi dan Negosiasi Harga',
+      tanggal: formatDateFromInput(form.hariPelaksanaan),
+      waktu: `${formatTimeWita(form.waktuMulai)} WITA s.d ${formatTimeWita(
+        form.waktuSelesai
+      )} WITA`,
+    },
+  ];
+
+  const updateForm = (key: keyof typeof form, value: string) => {
+    setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const persistDocumentTemplate = (settings: DocumentTemplateSettings) => {
+    const isSaved = saveDocumentTemplateSettings(settings);
+
+    if (!isSaved) {
+      setImageSettingsMessage(
+        'Gagal menyimpan gambar. Coba gunakan file yang lebih kecil.'
+      );
+    }
+
+    return isSaved;
+  };
+
+  const updateAndPersistDocumentAsset = <K extends keyof DocumentTemplateAsset>(
+    kind: 'header' | 'footer',
+    key: K,
+    value: DocumentTemplateAsset[K]
+  ) => {
+    setDocumentTemplate((current) => {
+      const next = {
+        ...current,
+        [kind]: {
+          ...current[kind],
+          [key]: value,
+        },
+      };
+
+      persistDocumentTemplate(next);
+      return next;
+    });
+  };
+
+  const resizeDocumentAsset = (
+    kind: 'header' | 'footer',
+    direction: 'smaller' | 'larger'
+  ) => {
+    const currentHeight = documentTemplate[kind].height;
+    const nextHeight =
+      direction === 'larger'
+        ? currentHeight + 8
+        : Math.max(currentHeight - 8, 24);
+
+    updateAndPersistDocumentAsset(kind, 'height', nextHeight);
+  };
+
+  const handleDocumentImageUpload = async (
+    kind: 'header' | 'footer',
+    event: ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setImageSettingsMessage('File harus berupa gambar.');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > maxImageFileSize) {
+      setImageSettingsMessage(
+        'Ukuran gambar maksimal 1.5 MB agar bisa disimpan di browser.'
+      );
+      event.target.value = '';
+      return;
+    }
+
+    const src = await readFileAsDataUrl(file);
+
+    setDocumentTemplate((current) => {
+      const next = {
+        ...current,
+        [kind]: {
+          ...current[kind],
+          src,
+          name: file.name,
+        },
+      };
+
+      if (persistDocumentTemplate(next)) {
+        setImageSettingsMessage(
+          `${kind === 'header' ? 'Header' : 'Footer'} berhasil diupload.`
+        );
+      }
+
+      return next;
+    });
+    event.target.value = '';
+  };
+
+  const removeDocumentImage = (kind: 'header' | 'footer') => {
+    setDocumentTemplate((current) => {
+      const next = {
+        ...current,
+        [kind]: {
+          ...current[kind],
+          src: '',
+          name: '',
+        },
+      };
+
+      if (persistDocumentTemplate(next)) {
+        setImageSettingsMessage(
+          `${kind === 'header' ? 'Header' : 'Footer'} dihapus.`
+        );
+      }
+
+      return next;
+    });
+  };
+
+  const openResultModal = () => {
+    setDocumentTemplate(getDocumentTemplateSettings());
+    setShowImageSettings(false);
+    setImageSettingsMessage('');
+    setShowResultModal(true);
+  };
+
+  const hasDocumentImages = Boolean(
+    documentTemplate.header.src || documentTemplate.footer.src
+  );
+  const hasCompleteHeaderFooterImages = Boolean(
+    documentTemplate.header.src && documentTemplate.footer.src
+  );
+  const isHeaderFooterRequired =
+    isSuratUndangan || isBuktiPengambilan;
+  const effectiveUseHeaderFooter =
+    (isSuratUndangan || isBuktiPengambilan) &&
+    (isHeaderFooterRequired || useHeaderFooter);
+  const canDownloadDocument =
+    !isHeaderFooterRequired || hasCompleteHeaderFooterImages;
+
+  const renderDocumentImageSettings = (
+    kind: 'header' | 'footer',
+    title: string,
+    inputRef: RefObject<HTMLInputElement>
+  ) => {
+    const asset = documentTemplate[kind];
+
+    return (
+      <div className="rounded border border-stroke bg-white p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-black">{title}</p>
+            <p className="mt-1 text-xs text-body">
+              {asset.name || 'Belum ada gambar'}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => handleDocumentImageUpload(kind, event)}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded border border-stroke px-3 text-xs font-medium text-black transition hover:border-primary hover:text-primary"
+            >
+              <FiUpload size={15} />
+              Upload
+            </button>
+            <button
+              type="button"
+              onClick={() => removeDocumentImage(kind)}
+              disabled={!asset.src}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded border border-stroke px-3 text-xs font-medium text-black transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <FiTrash2 size={15} />
+              Hapus
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded border border-dashed border-stroke bg-gray-2 p-3">
+          {asset.src ? (
+            <div
+              className={`flex min-h-[94px] w-full items-center ${getAssetJustifyClass(
+                asset.position
+              )}`}
+            >
+              <img
+                src={asset.src}
+                alt={`${title} dokumen`}
+                className="block max-w-full object-contain"
+                style={{
+                  height: `${asset.height}px`,
+                  width: asset.position === 'stretch' ? '100%' : 'auto',
+                }}
+              />
+            </div>
+          ) : (
+            <div className="flex min-h-[94px] items-center justify-center text-xs font-medium text-body">
+              Upload gambar untuk melihat preview.
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_190px_120px_120px]">
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase text-black">
+              Posisi
+            </label>
+            <select
+              value={asset.position}
+              disabled={!asset.src}
+              onChange={(event) =>
+                updateAndPersistDocumentAsset(
+                  kind,
+                  'position',
+                  event.target.value as DocumentTemplateAsset['position']
+                )
+              }
+              className="w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-black outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {documentAssetPositionOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase text-black">
+              Ukuran
+            </label>
+            <div className="grid grid-cols-[36px_1fr_36px] overflow-hidden rounded border border-stroke bg-white">
+              <button
+                type="button"
+                onClick={() => resizeDocumentAsset(kind, 'smaller')}
+                disabled={!asset.src}
+                className="inline-flex h-10 items-center justify-center border-r border-stroke text-black transition hover:bg-gray-2 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={`Perkecil ${title}`}
+                title={`Perkecil ${title}`}
+              >
+                <FiMinus size={15} />
+              </button>
+              <input
+                type="number"
+                min={24}
+                value={asset.height}
+                disabled={!asset.src}
+                onChange={(event) =>
+                  updateAndPersistDocumentAsset(
+                    kind,
+                    'height',
+                    Math.max(Number(event.target.value) || 24, 24)
+                  )
+                }
+                className="h-10 w-full bg-white px-2 text-center text-sm font-semibold text-black outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => resizeDocumentAsset(kind, 'larger')}
+                disabled={!asset.src}
+                className="inline-flex h-10 items-center justify-center border-l border-stroke text-black transition hover:bg-gray-2 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={`Perbesar ${title}`}
+                title={`Perbesar ${title}`}
+              >
+                <FiPlus size={15} />
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase text-black">
+              Jarak Atas
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={120}
+              value={asset.marginTop}
+              disabled={!asset.src}
+              onChange={(event) =>
+                updateAndPersistDocumentAsset(
+                  kind,
+                  'marginTop',
+                  Math.min(Math.max(Number(event.target.value) || 0, 0), 120)
+                )
+              }
+              className="h-10 w-full rounded border border-stroke bg-white px-3 text-sm font-semibold text-black outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-xs font-semibold uppercase text-black">
+              Jarak Bawah
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={120}
+              value={asset.marginBottom}
+              disabled={!asset.src}
+              onChange={(event) =>
+                updateAndPersistDocumentAsset(
+                  kind,
+                  'marginBottom',
+                  Math.min(Math.max(Number(event.target.value) || 0, 0), 120)
+                )
+              }
+              className="h-10 w-full rounded border border-stroke bg-white px-3 text-sm font-semibold text-black outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const getHeaderHtml = () =>
+    effectiveUseHeaderFooter
+      ? getDocumentAssetHtml(documentTemplate.header, 'Header dokumen')
+      : '';
+
+  const getFooterHtml = () =>
+    effectiveUseHeaderFooter
+      ? getDocumentAssetHtml(documentTemplate.footer, 'Footer dokumen')
+      : '';
+
+  const getSuratUndanganContentHtml = () => `
+    <div class="content-block top">
+      <table class="meta top-meta">
+        <tr><td class="meta-label">Nomor</td><td class="colon-mark">:</td><td>${escapeHtml(nomorDokumen)}</td></tr>
+        <tr><td class="meta-label">Lampiran</td><td class="colon-mark">:</td><td>${escapeHtml(form.lampiran)}</td></tr>
+      </table>
+      <div class="top-date">${escapeHtml(form.tempatSurat)}, ${escapeHtml(formatDateOnlyFromInput(form.tanggalSurat))}</div>
+    </div>
+
+    <div class="content-block mb">
+      <div>Kepada Yth,</div>
+      <div>${escapeHtml(form.kepadaYth)}</div>
+      <div>di -</div>
+      <div class="address-indent">${escapeHtml(form.di)}</div>
+    </div>
+
+    <table class="content-block meta mb subject">
+      <tr><td class="meta-label">Perihal</td><td class="colon-mark">:</td><td class="strong">${escapeHtml(form.perihal)}</td></tr>
+    </table>
+
+    <table class="content-block row-table mb">
+      <tr>
+        <td class="number-cell">1.</td>
+        <td class="colon-label">Nama Paket Pekerjaan</td>
+        <td class="colon-mark">:</td>
+        <td>${escapeHtml(form.namaPaketPekerjaan)}</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td class="colon-label">Nilai Total HPS</td>
+        <td class="colon-mark">:</td>
+        <td>Rp. ${escapeHtml(formatRupiahText(form.nilaiTotalHps))}</td>
+      </tr>
+    </table>
+
+    <table class="content-block row-table mb">
+      <tr>
+        <td class="number-cell">2.</td>
+        <td class="colon-label">Pelaksanaan Pengadaan</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td></td>
+        <td class="colon-label">Tempat dan Alamat</td>
+        <td class="colon-mark">:</td>
+        <td>${escapeHtml(form.tempatPelaksanaan)} - ${escapeHtml(form.di)}</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td class="colon-label">Email</td>
+        <td class="colon-mark">:</td>
+        <td>${escapeHtml(form.email)}</td>
+      </tr>
+    </table>
+
+    <div class="content-block">
+      <p>${escapeHtml(form.keteranganTujuan)}</p>
+      <table class="row-table mb">
+        <tr><td class="number-cell"></td><td class="colon-label">Hari</td><td class="colon-mark">:</td><td>${escapeHtml(formatDateFromInput(form.hariPelaksanaan))}</td></tr>
+        <tr><td></td><td class="colon-label">Waktu</td><td class="colon-mark">:</td><td>${escapeHtml(formatTimeWita(form.waktuMulai))} WITA s.d ${escapeHtml(formatTimeWita(form.waktuSelesai))} WITA</td></tr>
+        <tr><td></td><td class="colon-label">Tempat</td><td class="colon-mark">:</td><td>${escapeHtml(form.tempatPelaksanaan)}</td></tr>
+      </table>
+    </div>
+
+    <div class="content-block">
+      <p>${escapeHtml(form.keteranganPermohonan)}</p>
+      <table class="activity">
+        <thead>
+          <tr><th>No</th><th>Kegiatan</th><th>Tanggal</th><th>Waktu</th></tr>
+        </thead>
+        <tbody>
+          ${kegiatanRows
+            .map(
+              (row, index) =>
+                `<tr><td>${index + 1}.</td><td>${escapeHtml(row.nama)}</td><td>${escapeHtml(row.tanggal)}</td><td>${escapeHtml(row.waktu)}</td></tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="content-block signature">
+      <div class="signature-inner">
+        <div>Pejabat Pengadaan Barang/Jasa</div>
+        <div>PT BPR NTB PERSERODA</div>
+        <div style="height: 44px;"></div>
+        <div class="strong"><u>${escapeHtml(selectedPenandaTangan?.nama ?? '')}</u></div>
+        <div>NRP : ${escapeHtml(selectedPenandaTangan?.nrp ?? '')}</div>
+      </div>
+    </div>
+  `;
+
+  const getBeritaAcaraContentHtml = () => `
+    <div class="ba-document">
+      <div class="ba-title-block content-block">
+        <h1>Berita Acara Penjelasan Pekerjaan</h1>
+        <div>Nomor: <span class="ba-number">${escapeHtml(nomorDokumen)}</span></div>
+      </div>
+
+      <table class="ba-meta content-block">
+        <tr>
+          <td>Hari / tanggal</td>
+          <td>:</td>
+          <td>${escapeHtml(formatDateFromInput(form.beritaTanggal))}</td>
+        </tr>
+        <tr>
+          <td>Pukul</td>
+          <td>:</td>
+          <td>${escapeHtml(formatTimeWita(form.beritaPukul))} WITA</td>
+        </tr>
+        <tr>
+          <td>Tempat</td>
+          <td>:</td>
+          <td>${escapeHtml(form.beritaTempat)}</td>
+        </tr>
+        <tr>
+          <td>Peserta</td>
+          <td>:</td>
+          <td>${escapeHtml(form.beritaPeserta)}</td>
+        </tr>
+        <tr>
+          <td>Penjelasan Pekerjaan</td>
+          <td>:</td>
+          <td>${escapeHtml(form.beritaNamaPenjelasanPekerjaan)}</td>
+        </tr>
+      </table>
+
+      <div class="content-block ba-paragraph">${formatBeritaText(
+        form.beritaKeteranganAwal
+      )}</div>
+
+      <table class="ba-list content-block">
+        <tr>
+          <td>1.</td>
+          <td>Rapat dipimpin oleh PPK</td>
+          <td>:</td>
+          <td>${escapeHtml(beritaRapatDipimpin?.nama ?? '')}</td>
+        </tr>
+        <tr>
+          <td>2.</td>
+          <td>Penjelasan Umum/Administrasi diberikan Oleh PPBJ</td>
+          <td>:</td>
+          <td>${escapeHtml(beritaAdministrasi?.nama ?? '')}</td>
+        </tr>
+        <tr>
+          <td>3.</td>
+          <td>Penjelasan Teknik diberikan oleh PPBJ</td>
+          <td>:</td>
+          <td>${escapeHtml(beritaTeknik?.nama ?? '')}</td>
+        </tr>
+        <tr>
+          <td>4.</td>
+          <td>Tanya Jawab</td>
+          <td>:</td>
+          <td>${escapeHtml(beritaTanyaJawab?.nama ?? '')}</td>
+        </tr>
+      </table>
+
+      <div class="content-block ba-paragraph">${formatBeritaText(
+        form.beritaKeteranganTujuan
+      )}</div>
+
+      <div class="content-block ba-signatures">
+        <div class="ba-signature-left">
+          <div>${escapeHtml(selectedPengadaan.namaPenyedia)}</div>
+          <div class="ba-signature-space"></div>
+          <div class="strong"><u>${escapeHtml(selectedPengadaan.namaDirektur)}</u></div>
+          <div>Direktur</div>
+        </div>
+        <div class="ba-signature-right">
+          <div>Pejabat Pengadaan Barang/Jasa</div>
+          <div>PT BPR NTB PERSERODA</div>
+          <div class="ba-signature-space"></div>
+          <div class="strong"><u>${escapeHtml(beritaPenandaTangan?.nama ?? '')}</u></div>
+          <div>NRP : ${escapeHtml(beritaPenandaTangan?.nrp ?? '')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const getBuktiPengambilanContentHtml = () => `
+    <div class="bp-document">
+      <div class="bp-title-block content-block">
+        <h1>Bukti Pengambilan Dokumen Pengadaan</h1>
+      </div>
+
+      <table class="bp-meta content-block">
+        <tr>
+          <td>Pekerjaan</td>
+          <td>:</td>
+          <td>${escapeHtml(form.buktiPekerjaan)}</td>
+        </tr>
+        <tr>
+          <td>Hari/Tanggal</td>
+          <td>:</td>
+          <td>${escapeHtml(formatDateFromInput(form.buktiTanggal))}</td>
+        </tr>
+        <tr>
+          <td>Waktu</td>
+          <td>:</td>
+          <td>${escapeHtml(formatTimeWita(form.buktiWaktu))} WITA</td>
+        </tr>
+      </table>
+
+      <table class="bp-table content-block">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama Perusahaan</th>
+            <th>Nama</th>
+            <th>Jabatan</th>
+            <th>Tanda Tangan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>1.</td>
+            <td>${escapeHtml(form.buktiNamaPerusahaan)}</td>
+            <td>${escapeHtml(form.buktiNamaPejabatPerusahaan)}</td>
+            <td>${escapeHtml(form.buktiJabatanPejabat)}</td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="content-block bp-signature">
+        <div class="bp-signature-inner">
+          <div>Pejabat Pengadaan Barang/Jasa</div>
+          <div>PT BPR NTB PERSERODA T.A 2026</div>
+          <div class="bp-signature-space"></div>
+          <div class="strong"><u>${escapeHtml(buktiPenandaTangan?.nama ?? '')}</u></div>
+          <div>NRP : ${escapeHtml(buktiPenandaTangan?.nrp ?? '')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const getDocumentContentHtml = () =>
+    isBeritaAcaraPenjelasan
+      ? getBeritaAcaraContentHtml()
+      : isBuktiPengambilan
+      ? getBuktiPengambilanContentHtml()
+      : getSuratUndanganContentHtml();
+
+  const getDocumentHtml = (enablePagination = true) => `
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHtml(documentName)}</title>
+        <style>
+          @page { size: A4; margin: 0; }
+          html, body { margin: 0; padding: 0; background: #f1f5f9; }
+          body { font-family: Arial, sans-serif; font-size: 9pt; color: #000; line-height: 1.15; }
+          p { margin: 0 0 6px; text-align: justify; }
+          table { border-collapse: collapse; width: 100%; font-size: 9pt; }
+          .doc-page { box-sizing: border-box; width: 210mm; height: 297mm; margin: 2mm auto 10mm; padding: 8mm 24mm 16mm; background: #fff; box-shadow: 0 8px 26px rgba(15, 23, 42, 0.16); display: flex; flex-direction: column; overflow: hidden; }
+          .page-header, .page-footer { flex: 0 0 auto; }
+          .document-content { box-sizing: border-box; flex: 1 1 auto; overflow: hidden; padding: 0 ${documentBodyInset}px; }
+          .content-block { break-inside: avoid; page-break-inside: avoid; }
+          .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12mm; margin-bottom: 22px; }
+          .top-meta { width: 92mm; flex: 0 0 92mm; }
+          .top-meta td:last-child { white-space: nowrap; }
+          .top-date { white-space: nowrap; text-align: right; }
+          .meta td { padding: 0 4px 2px 0; vertical-align: top; }
+          .strong { font-weight: 700; }
+          .mb { margin-bottom: 10px; }
+          .subject { margin-top: 24px; margin-bottom: 20px; }
+          .row-table td { padding: 0 6px 3px 0; vertical-align: top; }
+          .meta-label { width: 25mm; white-space: nowrap; }
+          .number-cell { width: 7mm; white-space: nowrap; }
+          .colon-label { width: 46mm; white-space: nowrap; }
+          .colon-mark { width: 4mm; text-align: center; white-space: nowrap; }
+          .activity { table-layout: fixed; margin-top: 18px; }
+          .activity th, .activity td { border: 1.5px solid #000; padding: 2px 5px; vertical-align: top; }
+          .activity th:nth-child(1), .activity td:nth-child(1) { width: 8mm; }
+          .activity th:nth-child(3), .activity td:nth-child(3) { width: 38mm; }
+          .activity th:nth-child(4), .activity td:nth-child(4) { width: 48mm; }
+          .activity td:nth-child(3), .activity td:nth-child(4) { white-space: nowrap; }
+          .address-indent { margin-left: 16px; }
+          .activity th { text-align: center; font-weight: 700; }
+          .signature { margin-top: 18px; display: flex; justify-content: flex-end; }
+          .signature-inner { width: 64mm; text-align: center; }
+          .ba-document { padding: 12mm 4mm 0; font-size: 9pt; line-height: 1.22; }
+          .ba-title-block { margin-bottom: 22px; text-align: center; }
+          .ba-title-block h1 { margin: 0 0 3px; font-size: 13pt; font-weight: 700; text-decoration: underline; }
+          .ba-number { display: inline-block; min-width: 45mm; text-align: left; }
+          .ba-meta { margin-bottom: 16px; }
+          .ba-meta td { padding: 0 4px 4px 0; vertical-align: top; }
+          .ba-meta td:nth-child(1) { width: 38mm; white-space: nowrap; }
+          .ba-meta td:nth-child(2) { width: 4mm; text-align: center; }
+          .ba-paragraph { margin: 0 0 14px; text-align: justify; }
+          .ba-list { margin: 0 0 18px 4mm; width: calc(100% - 4mm); }
+          .ba-list td { padding: 0 4px 4px 0; vertical-align: top; }
+          .ba-list td:nth-child(1) { width: 7mm; }
+          .ba-list td:nth-child(2) { width: 78mm; }
+          .ba-list td:nth-child(3) { width: 4mm; text-align: center; }
+          .ba-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 20mm; margin-top: 30mm; text-align: center; }
+          .ba-signature-left, .ba-signature-right { display: flex; min-height: 38mm; flex-direction: column; }
+          .ba-signature-space { flex: 1 1 auto; min-height: 24mm; }
+          .bp-document { padding: 3mm 0 0; font-size: 9pt; line-height: 1.2; }
+          .bp-title-block { margin-bottom: 14mm; text-align: center; }
+          .bp-title-block h1 { margin: 0; font-size: 13pt; font-weight: 700; text-decoration: underline; }
+          .bp-meta { margin-bottom: 8mm; }
+          .bp-meta td { padding: 0 5px 3px 0; vertical-align: top; }
+          .bp-meta td:nth-child(1) { width: 28mm; white-space: nowrap; }
+          .bp-meta td:nth-child(2) { width: 4mm; text-align: center; }
+          .bp-table { table-layout: fixed; margin-top: 2mm; border: 1.5px solid #000; box-sizing: border-box; }
+          .bp-table th, .bp-table td { border: 1.5px solid #000; padding: 3px 4px; text-align: center; vertical-align: middle; }
+          .bp-table th { font-weight: 400; }
+          .bp-table th:nth-child(1), .bp-table td:nth-child(1) { width: 7%; }
+          .bp-table th:nth-child(2), .bp-table td:nth-child(2) { width: 24%; }
+          .bp-table th:nth-child(3), .bp-table td:nth-child(3) { width: 22%; }
+          .bp-table th:nth-child(4), .bp-table td:nth-child(4) { width: 21%; }
+          .bp-table th:nth-child(5), .bp-table td:nth-child(5) { width: 26%; border-right: 1.5px solid #000; }
+          .bp-table tbody td { height: 22mm; }
+          .bp-signature { display: flex; justify-content: flex-end; margin-top: 8mm; }
+          .bp-signature-inner { width: 64mm; text-align: center; }
+          .bp-signature-space { height: 24mm; }
+          .document-source, template { display: none; }
+          @media print {
+            html, body { background: #fff; }
+            .doc-page { margin: 0; box-shadow: none; page-break-after: always; }
+          .doc-page:last-child { page-break-after: auto; }
+            .static-document .doc-page { height: auto; min-height: 297mm; overflow: visible; display: block; }
+          }
+          .static-document .doc-page { height: auto; min-height: 297mm; overflow: visible; display: block; }
+        </style>
+      </head>
+      <body class="${enablePagination ? 'browser-document' : 'static-document'}">
+        ${
+          enablePagination
+            ? `
+              <template id="page-header-template">${getHeaderHtml()}</template>
+              <template id="page-footer-template">${getFooterHtml()}</template>
+              <div id="document-source" class="document-source">${getDocumentContentHtml()}</div>
+              <div id="page-root"></div>
+
+              <script>
+                (async () => {
+                  const root = document.getElementById('page-root');
+                  const source = document.getElementById('document-source');
+                  const headerTemplate = document.getElementById('page-header-template');
+                  const footerTemplate = document.getElementById('page-footer-template');
+                  const waitForImages = (target) =>
+                    Promise.all(
+                      Array.from(target.querySelectorAll('img')).map((image) => {
+                        if (image.complete) return Promise.resolve();
+
+                        return new Promise((resolve) => {
+                          image.addEventListener('load', resolve, { once: true });
+                          image.addEventListener('error', resolve, { once: true });
+                        });
+                      })
+                    );
+
+                  const fillTemplate = (target, template) => {
+                    if (!target || !template) return;
+                    target.appendChild(template.content.cloneNode(true));
+                  };
+
+                  const createPage = () => {
+                    const page = document.createElement('div');
+                    page.className = 'doc-page';
+
+                    const header = document.createElement('div');
+                    header.className = 'page-header';
+                    fillTemplate(header, headerTemplate);
+
+                    const content = document.createElement('div');
+                    content.className = 'document-content';
+
+                    const footer = document.createElement('div');
+                    footer.className = 'page-footer';
+                    fillTemplate(footer, footerTemplate);
+
+                    page.appendChild(header);
+                    page.appendChild(content);
+                    page.appendChild(footer);
+                    root.appendChild(page);
+
+                    return content;
+                  };
+
+                  let currentContent = createPage();
+                  Array.from(source.children).forEach((block) => {
+                    const clone = block.cloneNode(true);
+                    currentContent.appendChild(clone);
+
+                    if (
+                      currentContent.scrollHeight > currentContent.clientHeight + 1 &&
+                      currentContent.children.length > 1
+                    ) {
+                      clone.remove();
+                      currentContent = createPage();
+                      currentContent.appendChild(clone);
+                    }
+                  });
+
+                  source.remove();
+                  await waitForImages(root);
+                  window.__sipintarDocumentReady = true;
+                })();
+              </script>
+            `
+            : `
+              <div class="doc-page">
+                <div class="page-header">${getHeaderHtml()}</div>
+                <div class="document-content">${getDocumentContentHtml()}</div>
+                <div class="page-footer">${getFooterHtml()}</div>
+              </div>
+            `
+        }
+      </body>
+    </html>
+  `;
+
+  const downloadPdf = () => {
+    if (!canDownloadDocument) {
+      setShowImageSettings(true);
+      setImageSettingsMessage(
+        'Upload gambar header dan footer terlebih dahulu.'
+      );
+      return;
+    }
+
+    const printFrame = document.createElement('iframe');
+
+    printFrame.style.position = 'fixed';
+    printFrame.style.left = '-210mm';
+    printFrame.style.top = '0';
+    printFrame.style.width = '210mm';
+    printFrame.style.height = '297mm';
+    printFrame.style.border = '0';
+    printFrame.style.opacity = '0';
+    printFrame.style.pointerEvents = 'none';
+    printFrame.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(printFrame);
+
+    const printDocument = printFrame.contentWindow?.document;
+    if (!printDocument) {
+      printFrame.remove();
+      return;
+    }
+
+    printFrame.onload = () => {
+      const printWindow = printFrame.contentWindow;
+      if (!printWindow) {
+        printFrame.remove();
+        return;
+      }
+
+      const printWhenReady = () => {
+        const readyWindow = printWindow as Window & {
+          __sipintarDocumentReady?: boolean;
+        };
+
+        if (!readyWindow.__sipintarDocumentReady) {
+          window.setTimeout(printWhenReady, 100);
+          return;
+        }
+
+        printWindow.focus();
+        printWindow.print();
+
+        window.setTimeout(() => {
+          printFrame.remove();
+        }, 1000);
+      };
+
+      printWhenReady();
+    };
+
+    printDocument.open();
+    printDocument.write(getDocumentHtml());
+    printDocument.close();
+  };
+
+  return (
+    <>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-3">
+            <Link
+              to="/dashboard"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary transition hover:opacity-80"
+            >
+              <FiArrowLeft size={16} />
+              Kembali ke Dashboard
+            </Link>
+          </div>
+          <h2 className="text-title-md2 font-semibold text-black dark:text-white">
+            {isPreview ? 'Lihat Dokumen' : 'Buka Dokumen'}
+          </h2>
+          <p className="mt-1 text-sm text-body dark:text-bodydark">
+            {pengadaanTitle}
+          </p>
+        </div>
+
+        <div className="rounded-sm border border-stroke bg-white px-4 py-3 shadow-default dark:border-strokedark dark:bg-boxdark">
+          <p className="text-xs font-medium uppercase text-body dark:text-bodydark">
+            Nomor Dokumen
+          </p>
+          {isPreview ? (
+            <p className="mt-1 text-sm font-semibold text-black dark:text-white">
+              {nomorDokumen}
+            </p>
+          ) : (
+            <input
+              type="text"
+              value={nomorDokumen}
+              onChange={(event) => setNomorDokumen(event.target.value)}
+              className="mt-2 w-full min-w-[230px] rounded border border-stroke bg-white px-3 py-2 text-sm font-semibold text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
+        <div className="rounded-sm border border-stroke bg-white p-5 shadow-default dark:border-strokedark dark:bg-boxdark">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded bg-primary/10 text-primary">
+            <FiFileText size={24} />
+          </div>
+          <h3 className="text-lg font-semibold text-black dark:text-white">
+            {documentName}
+          </h3>
+          <div className="mt-5 space-y-3">
+            <div className="rounded bg-gray-2 px-4 py-3 dark:bg-meta-4">
+              <p className="text-xs font-medium uppercase text-body dark:text-bodydark">
+                Tanggal Pelaksana
+              </p>
+              <p className="mt-1 text-sm font-semibold text-black dark:text-white">
+                {formatTanggalIndonesia()}
+              </p>
+            </div>
+            <div className="rounded bg-gray-2 px-4 py-3 dark:bg-meta-4">
+              <p className="text-xs font-medium uppercase text-body dark:text-bodydark">
+                Status
+              </p>
+              <p className="mt-1 text-sm font-semibold text-primary">
+                Tersedia sebagai dummy
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark dark:bg-boxdark">
+          <div className="flex flex-col gap-4 border-b border-stroke px-5 py-4 dark:border-strokedark sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-black dark:text-white">
+                {isPreview ? 'Pratinjau Dokumen' : 'Ruang Dokumen'}
+              </h3>
+              <p className="mt-1 text-sm text-body dark:text-bodydark">
+                {isPreview
+                  ? 'Tampilan dokumen pengadaan yang dipilih.'
+                  : 'Area untuk membuka dan mengelola dokumen pengadaan.'}
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              {(isSuratUndangan ||
+                isBeritaAcaraPenjelasan ||
+                isBuktiPengambilan) && (
+                <button
+                  type="button"
+                  onClick={openResultModal}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded bg-primary px-4 text-sm font-medium text-white transition hover:bg-opacity-90"
+                >
+                  <FiEye size={18} />
+                  Lihat Hasil Dokumen
+                </button>
+              )}
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded border border-stroke text-body transition hover:border-primary hover:text-primary dark:border-strokedark dark:text-bodydark"
+                title="Download Dokumen"
+                aria-label="Download Dokumen"
+              >
+                <FiDownload size={18} />
+              </button>
+            </div>
+          </div>
+
+          <div className="p-5">
+            {isPreview ? (
+              <div className="mx-auto max-w-3xl rounded border border-stroke bg-whiten p-6 dark:border-strokedark dark:bg-boxdark-2">
+                <div className="mb-6 flex items-center justify-between border-b border-stroke pb-4 dark:border-strokedark">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-primary">
+                      SIPINTAR
+                    </p>
+                    <h4 className="mt-1 text-lg font-bold text-black dark:text-white">
+                      {documentName}
+                    </h4>
+                  </div>
+                  <FiEye className="text-primary" size={24} />
+                </div>
+                <div className="space-y-4 text-sm leading-6 text-black dark:text-white">
+                  <p>
+                    Nomor dokumen:{' '}
+                    <strong>{nomorDokumen}</strong>
+                  </p>
+                  <p>
+                    Tanggal pelaksana:{' '}
+                    <strong>{formatTanggalIndonesia()}</strong>
+                  </p>
+                  <p>
+                    Dokumen ini merupakan bagian dari proses {pengadaanTitle}.
+                    Konten pada halaman ini masih berupa pratinjau dummy untuk
+                    kebutuhan tampilan aplikasi.
+                  </p>
+                </div>
+              </div>
+            ) : isSuratUndangan ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <TextInput
+                    label="Lampiran"
+                    value={form.lampiran}
+                    onChange={(value) => updateForm('lampiran', value)}
+                  />
+                  <TextInput
+                    label="Kepada Yth."
+                    value={form.kepadaYth}
+                    onChange={(value) => updateForm('kepadaYth', value)}
+                  />
+                  <TextInput
+                    label="di -"
+                    value={form.di}
+                    onChange={(value) => updateForm('di', value)}
+                  />
+                  <TextInput
+                    label="Email"
+                    value={form.email}
+                    onChange={(value) => updateForm('email', value)}
+                    type="email"
+                  />
+                  <TextInput
+                    label="Perihal"
+                    value={form.perihal}
+                    onChange={(value) => updateForm('perihal', value)}
+                  />
+                  <TextInput
+                    label="Nama Paket Pekerjaan"
+                    value={form.namaPaketPekerjaan}
+                    onChange={(value) =>
+                      updateForm('namaPaketPekerjaan', value)
+                    }
+                  />
+                  <TextInput
+                    label="Tempat Surat"
+                    value={form.tempatSurat}
+                    onChange={(value) => updateForm('tempatSurat', value)}
+                  />
+                  <div>
+                    <TextInput
+                      label="Tanggal Surat"
+                      type="date"
+                      value={form.tanggalSurat}
+                      onChange={(value) => updateForm('tanggalSurat', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {form.tempatSurat},{' '}
+                      {formatDateOnlyFromInput(form.tanggalSurat)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                      Nilai Total HPS
+                    </label>
+                    <div className="flex overflow-hidden rounded border border-stroke bg-white focus-within:border-primary dark:border-form-strokedark dark:bg-form-input">
+                      <span className="flex items-center border-r border-stroke bg-gray-2 px-4 text-sm font-semibold text-black dark:border-form-strokedark dark:bg-meta-4 dark:text-white">
+                        Rp
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={formatRupiahText(form.nilaiTotalHps)}
+                        onChange={(event) =>
+                          updateForm(
+                            'nilaiTotalHps',
+                            event.target.value.replace(/\D/g, '')
+                          )
+                        }
+                        className="w-full bg-transparent px-4 py-3 text-sm text-black outline-none dark:text-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <TextInput
+                      label="Hari Pelaksanaan"
+                      type="date"
+                      value={form.hariPelaksanaan}
+                      onChange={(value) =>
+                        updateForm('hariPelaksanaan', value)
+                      }
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatDateFromInput(form.hariPelaksanaan)}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                      Waktu Pelaksanaan
+                    </label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <input
+                        type="time"
+                        value={form.waktuMulai}
+                        onChange={(event) =>
+                          updateForm('waktuMulai', event.target.value)
+                        }
+                        className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+                      />
+                      <input
+                        type="time"
+                        value={form.waktuSelesai}
+                        onChange={(event) =>
+                          updateForm('waktuSelesai', event.target.value)
+                        }
+                        className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+                      />
+                    </div>
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatTimeWita(form.waktuMulai)} WITA s.d{' '}
+                      {formatTimeWita(form.waktuSelesai)} WITA
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Tempat Pelaksanaan"
+                    value={form.tempatPelaksanaan}
+                    onChange={(value) =>
+                      updateForm('tempatPelaksanaan', value)
+                    }
+                  />
+                </div>
+
+                <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                  <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                    Kegiatan
+                  </h4>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <TextInput
+                      label="Nama Kegiatan"
+                      value={form.namaKegiatan}
+                      onChange={(value) => updateForm('namaKegiatan', value)}
+                    />
+                    <div>
+                      <TextInput
+                        label="Tanggal"
+                        type="date"
+                        value={form.tanggalKegiatan}
+                        onChange={(value) =>
+                          updateForm('tanggalKegiatan', value)
+                        }
+                      />
+                      <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                        {formatDateFromInput(form.tanggalKegiatan)}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                        Waktu
+                      </label>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <input
+                          type="time"
+                          value={form.waktuKegiatanMulai}
+                          onChange={(event) =>
+                            updateForm(
+                              'waktuKegiatanMulai',
+                              event.target.value
+                            )
+                          }
+                          className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+                        />
+                        <input
+                          type="time"
+                          value={form.waktuKegiatanSelesai}
+                          onChange={(event) =>
+                            updateForm(
+                              'waktuKegiatanSelesai',
+                              event.target.value
+                            )
+                          }
+                          className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+                        />
+                      </div>
+                      <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                        {formatTimeWita(form.waktuKegiatanMulai)} WITA s.d{' '}
+                        {formatTimeWita(form.waktuKegiatanSelesai)} WITA
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <TextArea
+                    label="Keterangan Tujuan Dokumen"
+                    value={form.keteranganTujuan}
+                    onChange={(value) =>
+                      updateForm('keteranganTujuan', value)
+                    }
+                  />
+                  <TextArea
+                    label="Keterangan Permohonan"
+                    value={form.keteranganPermohonan}
+                    onChange={(value) =>
+                      updateForm('keteranganPermohonan', value)
+                    }
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-black dark:text-white">
+                    Pejabat Pengadaan Barang/Jasa PT BPR NTB PESERODA
+                  </label>
+                  <select
+                    value={form.penandaTangan}
+                    onChange={(event) =>
+                      updateForm('penandaTangan', event.target.value)
+                    }
+                    className="w-full rounded border border-stroke bg-white px-4 py-3 text-sm text-black outline-none transition focus:border-primary dark:border-form-strokedark dark:bg-form-input dark:text-white"
+                  >
+                    {selectedPengadaan.pbj.map((pegawai) => (
+                      <option key={pegawai.nrp} value={pegawai.nrp}>
+                        {pegawai.nama} - NRP : {pegawai.nrp}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            ) : isBeritaAcaraPenjelasan ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <TextInput
+                      label="Hari / Tanggal"
+                      type="date"
+                      value={form.beritaTanggal}
+                      onChange={(value) => updateForm('beritaTanggal', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatDateFromInput(form.beritaTanggal)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <TextInput
+                      label="Pukul"
+                      type="time"
+                      value={form.beritaPukul}
+                      onChange={(value) => updateForm('beritaPukul', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatTimeWita(form.beritaPukul)} WITA
+                    </p>
+                  </div>
+
+                  <TextInput
+                    label="Tempat"
+                    value={form.beritaTempat}
+                    onChange={(value) => updateForm('beritaTempat', value)}
+                  />
+
+                  <TextInput
+                    label="Peserta"
+                    value={form.beritaPeserta}
+                    onChange={(value) => updateForm('beritaPeserta', value)}
+                  />
+
+                  <TextInput
+                    label="Nama Penjelasan Pekerjaan"
+                    value={form.beritaNamaPenjelasanPekerjaan}
+                    onChange={(value) =>
+                      updateForm('beritaNamaPenjelasanPekerjaan', value)
+                    }
+                  />
+
+                  <PbjSelect
+                    label="Rapat dipimpin oleh PPK"
+                    value={form.beritaRapatDipimpinPpk}
+                    options={selectedPengadaan.pbj}
+                    onChange={(value) =>
+                      updateForm('beritaRapatDipimpinPpk', value)
+                    }
+                  />
+
+                  <PbjSelect
+                    label="Penjelasan Umum/Administrasi diberikan Oleh PPBJ"
+                    value={form.beritaPenjelasanAdministrasiPpbj}
+                    options={selectedPengadaan.pbj}
+                    onChange={(value) =>
+                      updateForm('beritaPenjelasanAdministrasiPpbj', value)
+                    }
+                  />
+
+                  <PbjSelect
+                    label="Penjelasan Teknik diberikan oleh PPBJ"
+                    value={form.beritaPenjelasanTeknikPpbj}
+                    options={selectedPengadaan.pbj}
+                    onChange={(value) =>
+                      updateForm('beritaPenjelasanTeknikPpbj', value)
+                    }
+                  />
+
+                  <PbjSelect
+                    label="Rapat Tanya Jawab"
+                    value={form.beritaRapatTanyaJawab}
+                    options={selectedPengadaan.pbj}
+                    onChange={(value) =>
+                      updateForm('beritaRapatTanyaJawab', value)
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <TextArea
+                    label="Keterangan Awal"
+                    value={form.beritaKeteranganAwal}
+                    onChange={(value) =>
+                      updateForm('beritaKeteranganAwal', value)
+                    }
+                  />
+                  <TextArea
+                    label="Keterangan Tujuan"
+                    value={form.beritaKeteranganTujuan}
+                    onChange={(value) =>
+                      updateForm('beritaKeteranganTujuan', value)
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                    <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                      Penanda Tangan Penyedia
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="rounded bg-gray-2 px-4 py-3 dark:bg-meta-4">
+                        <p className="text-xs font-medium uppercase text-body dark:text-bodydark">
+                          {selectedPengadaan.namaPenyedia}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-black dark:text-white">
+                          {selectedPengadaan.namaDirektur}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded border border-stroke p-5 dark:border-strokedark md:justify-self-end md:w-full">
+                    <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                      Penanda Tangan PBJ
+                    </h4>
+                    <PbjSelect
+                      label="Pejabat Pengadaan Barang/Jasa PT BPR NTB PESERODA"
+                      value={form.beritaPenandaTangan}
+                      options={selectedPengadaan.pbj}
+                      onChange={(value) =>
+                        updateForm('beritaPenandaTangan', value)
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : isBuktiPengambilan ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <TextInput
+                    label="Pekerjaan"
+                    value={form.buktiPekerjaan}
+                    onChange={(value) => updateForm('buktiPekerjaan', value)}
+                  />
+
+                  <div>
+                    <TextInput
+                      label="Hari / Tanggal"
+                      type="date"
+                      value={form.buktiTanggal}
+                      onChange={(value) => updateForm('buktiTanggal', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatDateFromInput(form.buktiTanggal)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <TextInput
+                      label="Waktu"
+                      type="time"
+                      value={form.buktiWaktu}
+                      onChange={(value) => updateForm('buktiWaktu', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {formatTimeWita(form.buktiWaktu)} WITA
+                    </p>
+                  </div>
+
+                  <TextInput
+                    label="Nama Perusahaan"
+                    value={form.buktiNamaPerusahaan}
+                    onChange={(value) =>
+                      updateForm('buktiNamaPerusahaan', value)
+                    }
+                  />
+
+                  <TextInput
+                    label="Nama Pejabat Perusahaan"
+                    value={form.buktiNamaPejabatPerusahaan}
+                    onChange={(value) =>
+                      updateForm('buktiNamaPejabatPerusahaan', value)
+                    }
+                  />
+
+                  <TextInput
+                    label="Jabatan Pejabat"
+                    value={form.buktiJabatanPejabat}
+                    onChange={(value) =>
+                      updateForm('buktiJabatanPejabat', value)
+                    }
+                  />
+                </div>
+
+                <div className="rounded border border-stroke p-5 dark:border-strokedark md:ml-auto md:max-w-xl">
+                  <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                    Penanda Tangan
+                  </h4>
+                  <PbjSelect
+                    label="Pejabat Pengadaan Barang/Jasa PT BPR NTB PESERODA"
+                    value={form.buktiPenandaTangan}
+                    options={selectedPengadaan.pbj}
+                    onChange={(value) =>
+                      updateForm('buktiPenandaTangan', value)
+                    }
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                  <p className="text-sm font-semibold text-black dark:text-white">
+                    File Dokumen
+                  </p>
+                  <p className="mt-2 text-sm text-body dark:text-bodydark">
+                    {documentName}.pdf
+                  </p>
+                </div>
+                <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                  <p className="text-sm font-semibold text-black dark:text-white">
+                    Riwayat Perubahan
+                  </p>
+                  <p className="mt-2 text-sm text-body dark:text-bodydark">
+                    Dibuat otomatis dari data keterangan pelaksana.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {showResultModal && (
+        <div
+          className="fixed inset-0 z-9999 flex items-center justify-center bg-black/40 px-4 py-6 backdrop-blur-sm"
+          onClick={() => setShowResultModal(false)}
+        >
+          <div
+            className="max-h-[92vh] w-full max-w-[860px] overflow-y-auto rounded-sm border border-stroke bg-white shadow-default dark:border-strokedark"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 border-b border-stroke bg-white px-5 py-4 dark:border-strokedark">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-black">
+                    Hasil Dokumen {documentName}
+                  </h3>
+                  <p className="mt-1 text-sm text-body">
+                    {isBeritaAcaraPenjelasan
+                      ? form.beritaNamaPenjelasanPekerjaan
+                      : isBuktiPengambilan
+                      ? form.buktiPekerjaan
+                      : form.namaPaketPekerjaan}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowImageSettings((current) => !current);
+                    }}
+                    className={`inline-flex h-10 items-center justify-center gap-2 rounded border px-4 text-sm font-medium transition ${
+                      showImageSettings
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-stroke text-black hover:border-primary hover:text-primary'
+                    }`}
+                  >
+                    <FiImage size={16} />
+                    <span className="hidden sm:inline">Atur Gambar</span>
+                    <span className="sm:hidden">Gambar</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadPdf}
+                    disabled={!canDownloadDocument}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded bg-primary px-4 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <FiDownload size={16} />
+                    PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowResultModal(false)}
+                    className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded border border-stroke text-body transition hover:border-danger hover:text-danger"
+                    aria-label="Tutup hasil dokumen"
+                    title="Tutup"
+                  >
+                    <FiX size={18} />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {effectiveUseHeaderFooter &&
+              !showImageSettings &&
+              (isHeaderFooterRequired
+                ? !hasCompleteHeaderFooterImages
+                : !hasDocumentImages) && (
+              <div className="border-b border-stroke bg-white px-5 py-4 dark:border-strokedark">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm font-medium text-black">
+                    {isHeaderFooterRequired
+                      ? `${documentName} wajib memakai gambar header dan footer.`
+                      : 'Belum ada gambar header atau footer.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowImageSettings(true)}
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded border border-stroke px-4 text-sm font-medium text-black transition hover:border-primary hover:text-primary"
+                  >
+                    <FiImage size={16} />
+                    Atur Gambar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {effectiveUseHeaderFooter && showImageSettings && (
+              <div className="border-b border-stroke bg-gray-2 px-5 py-4 dark:border-strokedark">
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-black">
+                      Atur Gambar Header & Footer
+                    </h4>
+                    <p className="mt-1 text-xs text-body">
+                      Upload gambar lalu atur posisi dan ukurannya di preview.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDocumentTemplate(getDocumentTemplateSettings())
+                    }
+                    className="inline-flex h-9 items-center justify-center rounded border border-stroke bg-white px-4 text-xs font-medium text-black transition hover:border-primary hover:text-primary"
+                  >
+                    Muat Ulang
+                  </button>
+                </div>
+
+                {imageSettingsMessage && (
+                  <div className="mb-4 rounded border border-primary/30 bg-white px-4 py-3 text-sm font-semibold text-primary">
+                    {imageSettingsMessage}
+                  </div>
+                )}
+
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {renderDocumentImageSettings(
+                    'header',
+                    'Header',
+                    headerImageInputRef
+                  )}
+                  {renderDocumentImageSettings(
+                    'footer',
+                    'Footer',
+                    footerImageInputRef
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="bg-gray-2 px-4 py-6 dark:bg-boxdark-2 sm:px-8">
+              <iframe
+                title="Preview hasil dokumen"
+                srcDoc={getDocumentHtml()}
+                className="mx-auto block max-w-full border-0 bg-white shadow-default"
+                style={{
+                  width: '210mm',
+                  height: '297mm',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export default ProcurementDocument;

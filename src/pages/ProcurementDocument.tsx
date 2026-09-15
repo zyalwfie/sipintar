@@ -450,6 +450,24 @@ const ProcurementDocument = () => {
     uknParagrafPenutup:
       'Dalam Pembuktian Kualifikasi, mohon kiranya membawa dokumen aseli terhadap dokumen yang dicantumkan dalam dokumen penawaran. Demikian atas perhatian dan kehadiran saudara disampaikan terima kasih.',
     uknPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
+    baknTanggal: '2026-08-04',
+    baknTempat: 'Ruang Rapat Kantor PT BPR NTB PERSERODA',
+    baknNamaPenyedia: selectedPengadaan.namaPenyedia,
+    baknPekerjaan: selectedPengadaan.judulPengadaan,
+    baknHasil1:
+      'Dari hasil klarifikasi teknis, ' +
+      selectedPengadaan.namaPenyedia +
+      ' menyatakan sanggup untuk melaksanakan pekerjaan di atas sesuai dengan spesifikasi teknis, volume dan jangka waktu pekerjaan yang ditentukan.',
+    baknHasil2:
+      'Dari hasil negosiasi harga, disepakati harga pekerjaan sesuai daftar (terlampir).',
+    baknHasil3:
+      'Dari hasil pembuktian kualifikasi, ' +
+      selectedPengadaan.namaPenyedia +
+      ' dapat menunjukkan dokumen asli yang tercantum dalam dokumen penawaran.',
+    baknKeteranganPenutup:
+      'Demikian Berita Acara ini dibuat untuk ditindak lanjuti sebagaimana mestinya.',
+    baknNamaDirektur: selectedPengadaan.namaDirektur,
+    baknPenandaTangan: selectedPengadaan.pbj[0]?.nrp ?? '',
   });
   const [showResultModal, setShowResultModal] = useState(false);
   const [useHeaderFooter] = useState(true);
@@ -474,6 +492,7 @@ const ProcurementDocument = () => {
   const beritaPenandaTangan = getPbjByNrp(form.beritaPenandaTangan);
   const buktiPenandaTangan = getPbjByNrp(form.buktiPenandaTangan);
   const uknPenandaTangan = getPbjByNrp(form.uknPenandaTangan);
+  const baknPenandaTangan = getPbjByNrp(form.baknPenandaTangan);
   const kegiatanRows = [
     {
       nama: form.namaKegiatan || 'Penjelasan Pekerjaan',
@@ -1129,6 +1148,71 @@ const ProcurementDocument = () => {
     </div>
   `;
 
+  const getBeritaKlarifikasiContentHtml = () => {
+    const parts = getDatePartsIndonesia(form.baknTanggal);
+
+    return `
+    <div class="ba-document">
+      <div class="ba-title-block content-block">
+        <h1>Berita Acara Klarifikasi dan Negosiasi</h1>
+        <div>Nomor: <span class="ba-number">${escapeHtml(nomorDokumen)}</span></div>
+      </div>
+
+      <div class="content-block ba-paragraph">Pada Hari ini,</div>
+
+      <table class="ba-meta content-block">
+        <tr><td>Hari</td><td>:</td><td>${escapeHtml(parts.hari)}</td></tr>
+        <tr><td>Tanggal</td><td>:</td><td>${escapeHtml(parts.tanggal)}</td></tr>
+        <tr><td>Bulan</td><td>:</td><td>${escapeHtml(parts.bulan)}</td></tr>
+        <tr><td>Tahun</td><td>:</td><td>${escapeHtml(parts.tahun)}</td></tr>
+        <tr><td>Tempat</td><td>:</td><td>${escapeHtml(form.baknTempat)}</td></tr>
+      </table>
+
+      <div class="content-block ba-paragraph">kami yang bertanda tangan di bawah ini adalah Pejabat Pengadaan, telah melakukan klarifikasi teknis dan negosiasi harga terhadap penawaran yang diajukan oleh:</div>
+
+      <table class="ba-meta content-block">
+        <tr><td>Nama Penyedia</td><td>:</td><td>${escapeHtml(
+          form.baknNamaPenyedia
+        )}</td></tr>
+        <tr><td>Untuk Pekerjaan</td><td>:</td><td>${escapeHtml(
+          form.baknPekerjaan
+        )}</td></tr>
+      </table>
+
+      <div class="content-block ba-paragraph">Dengan hasil pembahasan sebagai berikut :</div>
+
+      <table class="ba-list bakn-list content-block">
+        <tr><td>1.</td><td>${escapeHtml(form.baknHasil1)}</td></tr>
+        <tr><td>2.</td><td>${escapeHtml(form.baknHasil2)}</td></tr>
+        <tr><td>3.</td><td>${escapeHtml(form.baknHasil3)}</td></tr>
+      </table>
+
+      <div class="content-block ba-paragraph">${escapeHtml(
+        form.baknKeteranganPenutup
+      )}</div>
+
+      <div class="content-block ba-signatures">
+        <div class="ba-signature-left">
+          <div>Penyedia,</div>
+          <div>${escapeHtml(form.baknNamaPenyedia)}</div>
+          <div class="ba-signature-space"></div>
+          <div class="strong"><u>${escapeHtml(form.baknNamaDirektur)}</u></div>
+          <div>Direktur</div>
+        </div>
+        <div class="ba-signature-right">
+          <div>Pejabat Pengadaan Barang/Jasa</div>
+          <div>PT BPR NTB PERSERODA T.A 2026</div>
+          <div class="ba-signature-space"></div>
+          <div class="strong"><u>${escapeHtml(
+            baknPenandaTangan?.nama ?? ''
+          )}</u></div>
+          <div>NRP : ${escapeHtml(baknPenandaTangan?.nrp ?? '')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  };
+
   const getDocumentContentHtml = () =>
     isBeritaAcaraPenjelasan
       ? getBeritaAcaraContentHtml()
@@ -1136,6 +1220,8 @@ const ProcurementDocument = () => {
       ? getBuktiPengambilanContentHtml()
       : isUndanganKlarifikasi
       ? getUndanganKlarifikasiContentHtml()
+      : isBeritaKlarifikasi
+      ? getBeritaKlarifikasiContentHtml()
       : getSuratUndanganContentHtml();
 
   const getDocumentHtml = (enablePagination = true) => `
@@ -1213,6 +1299,7 @@ const ProcurementDocument = () => {
           .bp-signature-inner { width: 64mm; text-align: center; }
           .bp-signature-space { height: 24mm; }
           .ukn-salam { margin: 0 0 10px; font-style: italic; font-weight: 700; }
+          .bakn-list td:nth-child(2) { width: auto; }
           .document-source, template { display: none; }
           @media print {
             html, body { background: #fff; }
@@ -2042,6 +2129,94 @@ const ProcurementDocument = () => {
                     options={selectedPengadaan.pbj}
                     onChange={(value) => updateForm('uknPenandaTangan', value)}
                   />
+                </div>
+              </div>
+            ) : isBeritaKlarifikasi ? (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <TextInput
+                      label="Hari / Tanggal"
+                      type="date"
+                      value={form.baknTanggal}
+                      onChange={(value) => updateForm('baknTanggal', value)}
+                    />
+                    <p className="mt-2 rounded bg-primary/5 px-3 py-2 text-xs font-medium text-primary">
+                      {(() => {
+                        const parts = getDatePartsIndonesia(form.baknTanggal);
+                        return `${parts.hari}, ${parts.tanggal} ${parts.bulan} ${parts.tahun}`;
+                      })()}
+                    </p>
+                  </div>
+                  <TextInput
+                    label="Tempat"
+                    value={form.baknTempat}
+                    onChange={(value) => updateForm('baknTempat', value)}
+                  />
+                  <TextInput
+                    label="Nama Penyedia"
+                    value={form.baknNamaPenyedia}
+                    onChange={(value) => updateForm('baknNamaPenyedia', value)}
+                  />
+                  <TextInput
+                    label="Untuk Pekerjaan"
+                    value={form.baknPekerjaan}
+                    onChange={(value) => updateForm('baknPekerjaan', value)}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <TextArea
+                    label="Hasil Pembahasan 1 (Klarifikasi Teknis)"
+                    value={form.baknHasil1}
+                    onChange={(value) => updateForm('baknHasil1', value)}
+                  />
+                  <TextArea
+                    label="Hasil Pembahasan 2 (Negosiasi Harga)"
+                    value={form.baknHasil2}
+                    onChange={(value) => updateForm('baknHasil2', value)}
+                  />
+                  <TextArea
+                    label="Hasil Pembahasan 3 (Pembuktian Kualifikasi)"
+                    value={form.baknHasil3}
+                    onChange={(value) => updateForm('baknHasil3', value)}
+                  />
+                  <TextArea
+                    label="Keterangan Penutup"
+                    value={form.baknKeteranganPenutup}
+                    onChange={(value) =>
+                      updateForm('baknKeteranganPenutup', value)
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                    <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                      Penanda Tangan Penyedia
+                    </h4>
+                    <TextInput
+                      label="Nama Direktur"
+                      value={form.baknNamaDirektur}
+                      onChange={(value) =>
+                        updateForm('baknNamaDirektur', value)
+                      }
+                    />
+                  </div>
+
+                  <div className="rounded border border-stroke p-5 dark:border-strokedark">
+                    <h4 className="mb-4 text-base font-semibold text-black dark:text-white">
+                      Penanda Tangan PBJ
+                    </h4>
+                    <PbjSelect
+                      label="Pejabat Pengadaan Barang/Jasa PT BPR NTB PESERODA"
+                      value={form.baknPenandaTangan}
+                      options={selectedPengadaan.pbj}
+                      onChange={(value) =>
+                        updateForm('baknPenandaTangan', value)
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             ) : (

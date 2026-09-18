@@ -1,23 +1,23 @@
-import { ChangeEvent, RefObject, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   FiArrowLeft,
   FiDownload,
   FiEye,
   FiFileText,
-  FiImage,
-  FiMinus,
-  FiPlus,
-  FiTrash2,
-  FiUpload,
+  FiLayout,
   FiX,
 } from 'react-icons/fi';
 import { Link, useParams } from 'react-router-dom';
 import {
+  DefaultDocumentImages,
+  DocumentAssetKind,
+  DocumentHeaderFooterVisibility,
   DocumentTemplateAsset,
-  DocumentTemplateSettings,
-  documentAssetPositionOptions,
-  getDocumentTemplateSettings,
-  saveDocumentTemplateSettings,
+  defaultHeaderAsset,
+  emptyDefaultDocumentImages,
+  getDocumentHeaderFooterVisibility,
+  loadDefaultDocumentImages,
+  saveDocumentHeaderFooterVisibility,
 } from '../utils/documentTemplate';
 
 const dokumenPelaksana = [
@@ -316,17 +316,7 @@ const formatRupiahTerbilang = (value: string) => {
   return `${angkaTerbilang(Number(digits))} Rupiah`;
 };
 
-const maxImageFileSize = 1.5 * 1024 * 1024;
 const documentBodyInset = 28;
-
-const readFileAsDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
 
 const escapeHtml = (value: string) =>
   value
@@ -470,13 +460,6 @@ const EvalSelect = ({
   </div>
 );
 
-const getAssetJustifyClass = (position: DocumentTemplateAsset['position']) => {
-  if (position === 'left') return 'justify-start';
-  if (position === 'right') return 'justify-end';
-
-  return 'justify-center';
-};
-
 const getHtmlJustifyContent = (position: DocumentTemplateAsset['position']) => {
   if (position === 'left') return 'flex-start';
   if (position === 'right') return 'flex-end';
@@ -507,9 +490,49 @@ const getDocumentAssetHtml = (
   `;
 };
 
+const a4WidthMm = 210;
+const pageBottomPaddingMm = 16;
+const fullPageFooterGapMm = 4;
+
+// Footer bawaan didesain penuh selebar kertas dan menempel di tepi bawah.
+const getFullPageFooterHtml = (src: string, heightMm: number) => `
+  <div class="page-footer-full" style="height: ${heightMm}mm;">
+    <img src="${escapeHtml(src)}" alt="Footer dokumen" />
+  </div>
+`;
+
+const HeaderFooterSwitch = ({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    onClick={() => onChange(!checked)}
+    className="group inline-flex items-center gap-3 text-sm text-black outline-none"
+  >
+    <span
+      className={`relative block h-5 w-9 flex-shrink-0 rounded-full transition group-focus-visible:ring-2 group-focus-visible:ring-primary group-focus-visible:ring-offset-2 ${
+        checked ? 'bg-primary' : 'bg-stroke'
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${
+          checked ? 'left-[18px]' : 'left-0.5'
+        }`}
+      />
+    </span>
+    {label}
+  </button>
+);
+
 const ProcurementDocument = () => {
-  const headerImageInputRef = useRef<HTMLInputElement | null>(null);
-  const footerImageInputRef = useRef<HTMLInputElement | null>(null);
   const { id, documentIndex, action } = useParams();
   const selectedIndex = Math.max(Number(documentIndex ?? 1) - 1, 0);
   const documentName =
@@ -698,9 +721,42 @@ const ProcurementDocument = () => {
   const [showResultModal, setShowResultModal] = useState(false);
   const [useHeaderFooter] = useState(true);
   const [showImageSettings, setShowImageSettings] = useState(false);
-  const [imageSettingsMessage, setImageSettingsMessage] = useState('');
-  const [documentTemplate, setDocumentTemplate] =
-    useState<DocumentTemplateSettings>(() => getDocumentTemplateSettings());
+  const [defaultDocumentImages, setDefaultDocumentImages] =
+    useState<DefaultDocumentImages>(emptyDefaultDocumentImages);
+  const paketKey = id ?? '1';
+  const documentKey = documentIndex ?? '1';
+  const [headerFooterVisibility, setHeaderFooterVisibility] =
+    useState<DocumentHeaderFooterVisibility>(() =>
+      getDocumentHeaderFooterVisibility(paketKey, documentKey)
+    );
+
+  useEffect(() => {
+    let isActive = true;
+
+    loadDefaultDocumentImages().then((images) => {
+      if (isActive) setDefaultDocumentImages(images);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setHeaderFooterVisibility(
+      getDocumentHeaderFooterVisibility(paketKey, documentKey)
+    );
+  }, [paketKey, documentKey]);
+
+  const updateHeaderFooterVisibility = (
+    kind: DocumentAssetKind,
+    isVisible: boolean
+  ) => {
+    const next = { ...headerFooterVisibility, [kind]: isVisible };
+
+    setHeaderFooterVisibility(next);
+    saveDocumentHeaderFooterVisibility(paketKey, documentKey, next);
+  };
 
   const selectedPenandaTangan =
     selectedPengadaan.pbj.find(
@@ -755,128 +811,21 @@ const ProcurementDocument = () => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
-  const persistDocumentTemplate = (settings: DocumentTemplateSettings) => {
-    const isSaved = saveDocumentTemplateSettings(settings);
-
-    if (!isSaved) {
-      setImageSettingsMessage(
-        'Gagal menyimpan gambar. Coba gunakan file yang lebih kecil.'
-      );
-    }
-
-    return isSaved;
-  };
-
-  const updateAndPersistDocumentAsset = <K extends keyof DocumentTemplateAsset>(
-    kind: 'header' | 'footer',
-    key: K,
-    value: DocumentTemplateAsset[K]
-  ) => {
-    setDocumentTemplate((current) => {
-      const next = {
-        ...current,
-        [kind]: {
-          ...current[kind],
-          [key]: value,
-        },
-      };
-
-      persistDocumentTemplate(next);
-      return next;
-    });
-  };
-
-  const resizeDocumentAsset = (
-    kind: 'header' | 'footer',
-    direction: 'smaller' | 'larger'
-  ) => {
-    const currentHeight = documentTemplate[kind].height;
-    const nextHeight =
-      direction === 'larger'
-        ? currentHeight + 8
-        : Math.max(currentHeight - 8, 24);
-
-    updateAndPersistDocumentAsset(kind, 'height', nextHeight);
-  };
-
-  const handleDocumentImageUpload = async (
-    kind: 'header' | 'footer',
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setImageSettingsMessage('File harus berupa gambar.');
-      event.target.value = '';
-      return;
-    }
-
-    if (file.size > maxImageFileSize) {
-      setImageSettingsMessage(
-        'Ukuran gambar maksimal 1.5 MB agar bisa disimpan di browser.'
-      );
-      event.target.value = '';
-      return;
-    }
-
-    const src = await readFileAsDataUrl(file);
-
-    setDocumentTemplate((current) => {
-      const next = {
-        ...current,
-        [kind]: {
-          ...current[kind],
-          src,
-          name: file.name,
-        },
-      };
-
-      if (persistDocumentTemplate(next)) {
-        setImageSettingsMessage(
-          `${kind === 'header' ? 'Header' : 'Footer'} berhasil diupload.`
-        );
-      }
-
-      return next;
-    });
-    event.target.value = '';
-  };
-
-  const removeDocumentImage = (kind: 'header' | 'footer') => {
-    setDocumentTemplate((current) => {
-      const next = {
-        ...current,
-        [kind]: {
-          ...current[kind],
-          src: '',
-          name: '',
-        },
-      };
-
-      if (persistDocumentTemplate(next)) {
-        setImageSettingsMessage(
-          `${kind === 'header' ? 'Header' : 'Footer'} dihapus.`
-        );
-      }
-
-      return next;
-    });
-  };
-
   const openResultModal = () => {
-    setDocumentTemplate(getDocumentTemplateSettings());
     setShowImageSettings(false);
-    setImageSettingsMessage('');
     setShowResultModal(true);
   };
 
-  const hasDocumentImages = Boolean(
-    documentTemplate.header.src || documentTemplate.footer.src
-  );
-  const hasCompleteHeaderFooterImages = Boolean(
-    documentTemplate.header.src && documentTemplate.footer.src
-  );
+  // Header dan footer selalu memakai gambar bawaan dari public/.
+  const headerAsset: DocumentTemplateAsset = {
+    ...defaultHeaderAsset,
+    src: defaultDocumentImages.header.src,
+    name: defaultDocumentImages.header.name,
+  };
+  const footerImage = defaultDocumentImages.footer;
+  const fullPageFooterHeightMm = footerImage.src
+    ? Number(((a4WidthMm * footerImage.height) / footerImage.width).toFixed(2))
+    : 0;
   const isHeaderFooterRequired =
     isSuratUndangan ||
     isBuktiPengambilan ||
@@ -889,198 +838,19 @@ const ProcurementDocument = () => {
     isPenunjukanPenyedia;
   const effectiveUseHeaderFooter =
     isHeaderFooterRequired && (isHeaderFooterRequired || useHeaderFooter);
-  const canDownloadDocument =
-    !isHeaderFooterRequired || hasCompleteHeaderFooterImages;
-
-  const renderDocumentImageSettings = (
-    kind: 'header' | 'footer',
-    title: string,
-    inputRef: RefObject<HTMLInputElement>
-  ) => {
-    const asset = documentTemplate[kind];
-
-    return (
-      <div className="rounded border border-stroke bg-white p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-black">{title}</p>
-            <p className="mt-1 text-xs text-body">
-              {asset.name || 'Belum ada gambar'}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              onChange={(event) => handleDocumentImageUpload(kind, event)}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded border border-stroke px-3 text-xs font-medium text-black transition hover:border-primary hover:text-primary"
-            >
-              <FiUpload size={15} />
-              Upload
-            </button>
-            <button
-              type="button"
-              onClick={() => removeDocumentImage(kind)}
-              disabled={!asset.src}
-              className="inline-flex h-9 items-center justify-center gap-2 rounded border border-stroke px-3 text-xs font-medium text-black transition hover:border-danger hover:text-danger disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <FiTrash2 size={15} />
-              Hapus
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4 rounded border border-dashed border-stroke bg-gray-2 p-3">
-          {asset.src ? (
-            <div
-              className={`flex min-h-[94px] w-full items-center ${getAssetJustifyClass(
-                asset.position
-              )}`}
-            >
-              <img
-                src={asset.src}
-                alt={`${title} dokumen`}
-                className="block max-w-full object-contain"
-                style={{
-                  height: `${asset.height}px`,
-                  width: asset.position === 'stretch' ? '100%' : 'auto',
-                }}
-              />
-            </div>
-          ) : (
-            <div className="flex min-h-[94px] items-center justify-center text-xs font-medium text-body">
-              Upload gambar untuk melihat preview.
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_190px_120px_120px]">
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase text-black">
-              Posisi
-            </label>
-            <select
-              value={asset.position}
-              disabled={!asset.src}
-              onChange={(event) =>
-                updateAndPersistDocumentAsset(
-                  kind,
-                  'position',
-                  event.target.value as DocumentTemplateAsset['position']
-                )
-              }
-              className="w-full rounded border border-stroke bg-white px-3 py-2 text-sm text-black outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {documentAssetPositionOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase text-black">
-              Ukuran
-            </label>
-            <div className="grid grid-cols-[36px_1fr_36px] overflow-hidden rounded border border-stroke bg-white">
-              <button
-                type="button"
-                onClick={() => resizeDocumentAsset(kind, 'smaller')}
-                disabled={!asset.src}
-                className="inline-flex h-10 items-center justify-center border-r border-stroke text-black transition hover:bg-gray-2 disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label={`Perkecil ${title}`}
-                title={`Perkecil ${title}`}
-              >
-                <FiMinus size={15} />
-              </button>
-              <input
-                type="number"
-                min={24}
-                value={asset.height}
-                disabled={!asset.src}
-                onChange={(event) =>
-                  updateAndPersistDocumentAsset(
-                    kind,
-                    'height',
-                    Math.max(Number(event.target.value) || 24, 24)
-                  )
-                }
-                className="h-10 w-full bg-white px-2 text-center text-sm font-semibold text-black outline-none disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              <button
-                type="button"
-                onClick={() => resizeDocumentAsset(kind, 'larger')}
-                disabled={!asset.src}
-                className="inline-flex h-10 items-center justify-center border-l border-stroke text-black transition hover:bg-gray-2 disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label={`Perbesar ${title}`}
-                title={`Perbesar ${title}`}
-              >
-                <FiPlus size={15} />
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase text-black">
-              Jarak Atas
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={120}
-              value={asset.marginTop}
-              disabled={!asset.src}
-              onChange={(event) =>
-                updateAndPersistDocumentAsset(
-                  kind,
-                  'marginTop',
-                  Math.min(Math.max(Number(event.target.value) || 0, 0), 120)
-                )
-              }
-              className="h-10 w-full rounded border border-stroke bg-white px-3 text-sm font-semibold text-black outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-xs font-semibold uppercase text-black">
-              Jarak Bawah
-            </label>
-            <input
-              type="number"
-              min={0}
-              max={120}
-              value={asset.marginBottom}
-              disabled={!asset.src}
-              onChange={(event) =>
-                updateAndPersistDocumentAsset(
-                  kind,
-                  'marginBottom',
-                  Math.min(Math.max(Number(event.target.value) || 0, 0), 120)
-                )
-              }
-              className="h-10 w-full rounded border border-stroke bg-white px-3 text-sm font-semibold text-black outline-none transition focus:border-primary disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </div>
-        </div>
-      </div>
-    );
-  };
+  const showHeader = effectiveUseHeaderFooter && headerFooterVisibility.header;
+  const showFooter = effectiveUseHeaderFooter && headerFooterVisibility.footer;
+  const showFullPageFooter = showFooter && Boolean(footerImage.src);
+  const pagePaddingBottom = showFullPageFooter
+    ? `${fullPageFooterHeightMm + fullPageFooterGapMm}mm`
+    : `${pageBottomPaddingMm}mm`;
 
   const getHeaderHtml = () =>
-    effectiveUseHeaderFooter
-      ? getDocumentAssetHtml(documentTemplate.header, 'Header dokumen')
-      : '';
+    showHeader ? getDocumentAssetHtml(headerAsset, 'Header dokumen') : '';
 
   const getFooterHtml = () =>
-    effectiveUseHeaderFooter
-      ? getDocumentAssetHtml(documentTemplate.footer, 'Footer dokumen')
+    showFullPageFooter
+      ? getFullPageFooterHtml(footerImage.src, fullPageFooterHeightMm)
       : '';
 
   const getSuratUndanganContentHtml = () => `
@@ -2139,8 +1909,10 @@ const ProcurementDocument = () => {
           body { font-family: Arial, sans-serif; font-size: 9pt; color: #000; line-height: 1.15; }
           p { margin: 0 0 6px; text-align: justify; }
           table { border-collapse: collapse; width: 100%; font-size: 9pt; }
-          .doc-page { box-sizing: border-box; width: 210mm; height: 297mm; margin: 2mm auto 10mm; padding: 8mm 24mm 16mm; background: #fff; box-shadow: 0 8px 26px rgba(15, 23, 42, 0.16); display: flex; flex-direction: column; overflow: hidden; }
+          .doc-page { position: relative; box-sizing: border-box; width: 210mm; height: 297mm; margin: 2mm auto 10mm; padding: 8mm 24mm ${pagePaddingBottom}; background: #fff; box-shadow: 0 8px 26px rgba(15, 23, 42, 0.16); display: flex; flex-direction: column; overflow: hidden; }
           .page-header, .page-footer { flex: 0 0 auto; }
+          .page-footer-full { position: absolute; left: 0; right: 0; bottom: 0; overflow: hidden; }
+          .page-footer-full img { display: block; width: 100%; height: 100%; }
           .document-content { box-sizing: border-box; flex: 1 1 auto; overflow: hidden; padding: 0 ${documentBodyInset}px; }
           .content-block { break-inside: avoid; page-break-inside: avoid; }
           .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12mm; margin-bottom: 22px; }
@@ -2405,14 +2177,6 @@ const ProcurementDocument = () => {
   `;
 
   const downloadPdf = () => {
-    if (!canDownloadDocument) {
-      setShowImageSettings(true);
-      setImageSettingsMessage(
-        'Upload gambar header dan footer terlebih dahulu.'
-      );
-      return;
-    }
-
     const printFrame = document.createElement('iframe');
 
     printFrame.style.position = 'fixed';
@@ -4079,25 +3843,27 @@ const ProcurementDocument = () => {
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowImageSettings((current) => !current);
-                    }}
-                    className={`inline-flex h-10 items-center justify-center gap-2 rounded border px-4 text-sm font-medium transition ${
-                      showImageSettings
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-stroke text-black hover:border-primary hover:text-primary'
-                    }`}
-                  >
-                    <FiImage size={16} />
-                    <span className="hidden sm:inline">Atur Gambar</span>
-                    <span className="sm:hidden">Gambar</span>
-                  </button>
+                  {effectiveUseHeaderFooter && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowImageSettings((current) => !current);
+                      }}
+                      aria-expanded={showImageSettings}
+                      className={`inline-flex h-10 items-center justify-center gap-2 rounded border px-4 text-sm font-medium transition ${
+                        showImageSettings
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-stroke text-black hover:border-primary hover:text-primary'
+                      }`}
+                    >
+                      <FiLayout size={16} />
+                      <span className="hidden sm:inline">Tampilan Halaman</span>
+                      <span className="sm:hidden">Tampilan</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={downloadPdf}
-                    disabled={!canDownloadDocument}
                     className="inline-flex h-10 items-center justify-center gap-2 rounded bg-primary px-4 text-sm font-medium text-white transition hover:bg-opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <FiDownload size={16} />
@@ -4117,68 +3883,39 @@ const ProcurementDocument = () => {
             </div>
 
             {effectiveUseHeaderFooter &&
-              !showImageSettings &&
-              (isHeaderFooterRequired
-                ? !hasCompleteHeaderFooterImages
-                : !hasDocumentImages) && (
+              defaultDocumentImages !== emptyDefaultDocumentImages &&
+              ((showHeader && !headerAsset.src) ||
+                (showFooter && !footerImage.src)) && (
               <div className="border-b border-stroke bg-white px-5 py-4 dark:border-strokedark">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-medium text-black">
-                    {isHeaderFooterRequired
-                      ? `${documentName} wajib memakai gambar header dan footer.`
-                      : 'Belum ada gambar header atau footer.'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowImageSettings(true)}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded border border-stroke px-4 text-sm font-medium text-black transition hover:border-primary hover:text-primary"
-                  >
-                    <FiImage size={16} />
-                    Atur Gambar
-                  </button>
-                </div>
+                <p className="text-sm font-medium text-black">
+                  Gambar header atau footer tidak ditemukan. Dokumen tetap bisa
+                  diunduh tanpa gambar tersebut.
+                </p>
               </div>
             )}
 
             {effectiveUseHeaderFooter && showImageSettings && (
               <div className="border-b border-stroke bg-gray-2 px-5 py-4 dark:border-strokedark">
-                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h4 className="text-sm font-semibold text-black">
-                      Atur Gambar Header & Footer
-                    </h4>
-                    <p className="mt-1 text-xs text-body">
-                      Upload gambar lalu atur posisi dan ukurannya di preview.
-                    </p>
+                <div className="rounded border border-stroke bg-white p-4">
+                  <p className="mb-3 text-sm font-semibold text-black">
+                    Tampilan halaman
+                  </p>
+                  <div className="flex flex-col items-start gap-3">
+                    <HeaderFooterSwitch
+                      label="Header (logo)"
+                      checked={headerFooterVisibility.header}
+                      onChange={(checked) =>
+                        updateHeaderFooterVisibility('header', checked)
+                      }
+                    />
+                    <HeaderFooterSwitch
+                      label="Footer"
+                      checked={headerFooterVisibility.footer}
+                      onChange={(checked) =>
+                        updateHeaderFooterVisibility('footer', checked)
+                      }
+                    />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setDocumentTemplate(getDocumentTemplateSettings())
-                    }
-                    className="inline-flex h-9 items-center justify-center rounded border border-stroke bg-white px-4 text-xs font-medium text-black transition hover:border-primary hover:text-primary"
-                  >
-                    Muat Ulang
-                  </button>
-                </div>
-
-                {imageSettingsMessage && (
-                  <div className="mb-4 rounded border border-primary/30 bg-white px-4 py-3 text-sm font-semibold text-primary">
-                    {imageSettingsMessage}
-                  </div>
-                )}
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {renderDocumentImageSettings(
-                    'header',
-                    'Header',
-                    headerImageInputRef
-                  )}
-                  {renderDocumentImageSettings(
-                    'footer',
-                    'Footer',
-                    footerImageInputRef
-                  )}
                 </div>
               </div>
             )}
